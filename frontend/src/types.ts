@@ -1,0 +1,6 @@
+export type Vec=[number,number];
+export type AgentId='yuanyuan'|'shouze'|'xiaoye'|'jia';
+export interface Evidence {id:string;title:string;text:string;source:string}
+export interface ReviewQuestion {id:string;title:string;options:{id:string;text:string}[]}
+export interface GameState {review_pending:boolean;phone_chat:{role:'user'|'assistant';text:string}[];revision:number;arrival_pending:boolean;blood_trail:Vec[];robot_contaminated:boolean;blood_source_cleaned:boolean;phase:'menu'|'notice'|'play'|'ending';player:Vec;robot:Vec;robot_task:string;light:string;door_open:boolean;archive_allowed:boolean;stain_cleaned:boolean;credit:number;clock:string;evidence:Evidence[];events:{n:number;time:string;actor:string;text:string}[];transcript:{agent:string;role:string;text:string}[];ending:null|{kind:string;title:string;body:string;epilogue:string;verified:number};last_reply:string;last_agent:AgentId|null}
+export interface World {review_questions:ReviewQuestion[];agents:Record<AgentId,{name:string;role:string;position:Vec;color:string}>;objects:Record<string,{name:string;position:Vec}>;phone_assistant:{name:string;role:string;greeting:string};solids:number[][];rules:string[];welcome:Record<AgentId,string>}
