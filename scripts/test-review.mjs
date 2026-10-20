@@ -1,0 +1,13 @@
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+const require=createRequire(new URL('../frontend/package.json',import.meta.url));
+const ts=require('typescript');
+const code=ts.transpileModule(readFileSync(new URL('../frontend/src/review.ts',import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+const {ReviewSelection}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const questions=[{id:'one',options:[{id:'a'},{id:'b'}]},{id:'two',options:[{id:'c'},{id:'d'}]},{id:'three',options:[{id:'e'},{id:'f'}]}];
+test('all three questions must be selected before submission',()=>{const r=new ReviewSelection();assert(!r.complete(questions));r.choose(questions[0],'a');r.choose(questions[1],'d');assert(!r.complete(questions));r.choose(questions[2],'e');assert(r.complete(questions));});
+test('going back preserves choices and permits changing judgment',()=>{const r=new ReviewSelection();r.choose(questions[0],'a');r.step=2;r.step=0;assert.equal(r.answers.one,'a');r.choose(questions[0],'b');assert.equal(r.answers.one,'b');});
+test('opening a new review clears old choices without deciding any verdict',()=>{const r=new ReviewSelection();r.choose(questions[0],'b');r.step=2;r.reset();assert.equal(r.step,0);assert.deepEqual(r.answers,{});assert.equal(r.ending,undefined);});
+test('unlisted choices are ignored',()=>{const r=new ReviewSelection();r.choose(questions[0],'forged');assert.deepEqual(r.answers,{});});
