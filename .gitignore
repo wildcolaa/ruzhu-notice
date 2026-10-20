@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+.venv/
+frontend/node_modules/
+data/
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+*.log
+*.sqlite3*
+*.zip
+# Publish only the reviewed, conversation-free game preview.
+screenshots/**
+!screenshots/v1.4/
+!screenshots/v1.4/review-choices.png
