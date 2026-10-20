@@ -1,0 +1,16 @@
+/** All sound is synthesized locally. No audio downloads, trackers or autoplay. */
+export class Atmosphere {
+ ctx:AudioContext|null=null;master:GainNode|null=null;muted=false;ducked=false;lastStep=0;lastScrape=0;
+ start(){if(this.ctx){void this.ctx.resume();return;}
+ const C=window.AudioContext; if(!C)return;const ctx=this.ctx=new C();this.master=ctx.createGain();this.master.gain.value=.22;this.master.connect(ctx.destination);
+ const buffer=ctx.createBuffer(1,ctx.sampleRate*4,ctx.sampleRate);const data=buffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
+ const rain=ctx.createBufferSource();rain.buffer=buffer;rain.loop=true;const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=1300;const gain=ctx.createGain();gain.gain.value=.15;rain.connect(filter);filter.connect(gain);gain.connect(this.master);rain.start();
+ for(const f of [55,58.3,82.6]){const osc=ctx.createOscillator();osc.frequency.value=f;osc.type='sine';const g=ctx.createGain();g.gain.value=.045;osc.connect(g);g.connect(this.master);osc.start();}
+ }
+ mute(){this.muted=!this.muted;this.duck(this.ducked);}
+ duck(on:boolean){this.ducked=on;if(this.master&&this.ctx)this.master.gain.setTargetAtTime(this.muted?0:on?.018:.22,this.ctx.currentTime,.12);}
+ tone(kind:string){if(!this.ctx||!this.master||this.muted)return;const ctx=this.ctx;const osc=ctx.createOscillator();const g=ctx.createGain();osc.type=kind==='step'?'triangle':'sine';const freq=({yuanyuan:540,shouze:210,xiaoye:880,jia:145,step:90,inspect:610,door:180} as Record<string,number>)[kind]||420;osc.frequency.setValueAtTime(freq,ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.7,ctx.currentTime+.18);g.gain.setValueAtTime(0,ctx.currentTime);g.gain.linearRampToValueAtTime(kind==='step'?.12:.22,ctx.currentTime+.01);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.22);osc.connect(g);g.connect(this.master);osc.start();osc.stop(ctx.currentTime+.23);}
+ power(){if(!this.ctx||!this.master||this.muted)return;const c=this.ctx,o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.setValueAtTime(38,c.currentTime);o.frequency.exponentialRampToValueAtTime(105,c.currentTime+.75);g.gain.setValueAtTime(.001,c.currentTime);g.gain.exponentialRampToValueAtTime(.28,c.currentTime+.08);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+1);o.connect(g);g.connect(this.master);o.start();o.stop(c.currentTime+1);}
+ scrape(){if(!this.ctx||!this.master||this.muted||performance.now()-this.lastScrape<1300)return;this.lastScrape=performance.now();const c=this.ctx,b=c.createBuffer(1,Math.floor(c.sampleRate*.35),c.sampleRate),d=b.getChannelData(0);let previous=0;for(let i=0;i<d.length;i++){previous=(previous+Math.random()*.18-.09)*.97;d[i]=previous;}const source=c.createBufferSource(),filter=c.createBiquadFilter(),g=c.createGain();source.buffer=b;filter.type='bandpass';filter.frequency.value=370;filter.Q.value=.7;g.gain.setValueAtTime(.2,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.33);source.connect(filter);filter.connect(g);g.connect(this.master);source.start();}
+ step(){if(performance.now()-this.lastStep>330){this.lastStep=performance.now();this.tone('step');}}
+}
