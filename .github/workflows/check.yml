@@ -1,0 +1,45 @@
+name: Game checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GROQ_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts
+      - name: Test backend
+        run: python -m pytest -q
+      - name: Test interaction controllers
+        run: |
+          node scripts/test-voice.mjs
+          node scripts/test-review.mjs
+      - name: Check types and build game
+        working-directory: frontend
+        run: npm run build
+      - name: Play complete case in simulation mode
+        run: bash scripts/ci-smoke.sh
