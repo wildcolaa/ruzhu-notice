@@ -98,8 +98,9 @@ function refreshHUD() {
   const total = 6, n = evidenceCount();
   $('pfill').style.width = Math.min(100, (n / total) * 100) + '%';
   $('plabel').textContent = `原始记录 ${n} / ${total}`;
-  $('dock').innerHTML = `<button class="npcbtn" id="btnPhone">手机（N）</button><button class="toolbtn" id="btnNotice">住户须知</button><button class="toolbtn" id="btnReset">重新开始</button>`;
+  $('dock').innerHTML = `<button class="npcbtn" id="btnPhone">手机（N）</button><button class="toolbtn" id="btnNotice">住户须知</button><button class="toolbtn" id="btnAI">AI 设置${NPC.hasGroq() ? ' ✓' : ''}</button><button class="toolbtn" id="btnReset">重新开始</button>`;
   $('btnPhone').onclick = openPhone;
+  $('btnAI').onclick = () => openAISettings();
   $('btnNotice').onclick = showNotice;
   $('btnReset').onclick = () => say('重新开始？', '当前进度会被清除，回到入住前。', [
     { l: '清除进度并重新开始', fn: () => { wipe(); location.reload(); } }, { l: '取消' }]);
@@ -220,7 +221,7 @@ async function openChat(id) {
   const a = AGENTS[id];
   S.chat[id] = S.chat[id] || [];
   const hist = S.chat[id];
-  const html = `<h2>${esc(a.name)}<span class="hint" style="margin-left:10px">${esc(a.duty)} · ${NPC.canUseAI() ? '实时对话' : '规则对话'}</span></h2>
+  const html = `<h2>${esc(a.name)}<span class="hint" style="margin-left:10px">${esc(a.duty)} · ${esc(NPC.aiLabel())}</span></h2>
     <p class="hint">感知：${esc(a.sense)}</p>
     <div class="chatlog" id="log" aria-live="polite"></div>
     <div class="row"><input id="msg" placeholder="按住空格说话，或打字后回车" aria-label="对设备说话" autocomplete="off"/><button class="mic" id="mic" type="button" aria-label="按住说话" title="按住说话"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="primary" id="send" style="margin-top:0">发送</button></div>
@@ -237,6 +238,9 @@ async function openChat(id) {
       const ctx = { day: S.day, flags: S.flags, power: S.power, holding: S.holding, evidence: evidenceCount(), summary: ctxSummary() };
       const res = await NPC.reply(id, ctx, hist.slice(0, -1), msg);
       hist[hist.length - 1].text = res.reply; render(); busy = false;
+      const st = sh.querySelector('#vstatus');
+      if (res.aiError && st) st.textContent = `AI 暂时不可用（${res.aiError}），这句用的是规则对白。`;
+      else if (st && st.textContent.startsWith('AI 暂时')) st.textContent = '';
       if (msg) window.applyAction(id, res);
       save();
     };
@@ -247,5 +251,48 @@ async function openChat(id) {
     detachVoice = attachVoice(sh, send);
     render();
     if (S.greeted[id] !== S.day) { S.greeted[id] = S.day; await speak(null); }
+  });
+}
+
+// ---------- AI 设置：Groq 免费 API Key（只存在本机浏览器）----------
+function openAISettings(after) {
+  const c = NPC.AI.cfg();
+  const masked = c.key ? c.key.slice(0, 4) + '…' + c.key.slice(-4) : '';
+  const models = NPC.AI_MODELS.map(([v, l]) => `<option value="${esc(v)}" ${(c.model || NPC.AI_MODELS[0][0]) === v ? 'selected' : ''}>${esc(l)}</option>`).join('');
+  openModal(`<h2>AI 设置</h2>
+    <p>家电可以接上 <b>Groq</b> 的免费模型，用自然语言和它们对话。没有 Key 时仍是规则对白，同样可以通关。</p>
+    <p class="hint">1. 打开 <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>，用邮箱或 Google 登录，点 Create API Key。<br>
+    2. 把 <code>gsk_</code> 开头的 Key 粘贴到下面。</p>
+    <label class="hint" for="aikey">Groq API Key${masked ? `（已保存：${esc(masked)}）` : ''}</label>
+    <div class="row" style="margin-top:4px"><input id="aikey" type="password" placeholder="${masked ? '留空则保留已保存的 Key' : 'gsk_...'}" autocomplete="off" spellcheck="false"/></div>
+    <label class="hint" for="aimodel" style="display:block;margin-top:12px">模型</label>
+    <div class="row" style="margin-top:4px"><select id="aimodel" style="flex:1;padding:10px;background:#f7f0e0;border:1px solid rgba(42,33,24,.18);font-size:14px">${models}</select></div>
+    <p class="hint" id="aistatus" aria-live="polite"></p>
+    <p class="hint">Key 只保存在这台电脑的浏览器里（localStorage），对话时直接发给 Groq，不经过其他服务器，也不会写进游戏文件。在公用电脑上玩完记得点「清除 Key」。家电说什么由 AI 生成，但开门、导出记录、结局等结果仍由游戏规则决定。</p>
+    <div class="choices">
+      <button id="aisave">保存并测试连接</button>
+      ${c.key ? '<button id="aiclear">清除 Key，改回规则对白</button>' : ''}
+      <button id="aiclose">关闭</button>
+    </div>`, sh => {
+    const st = sh.querySelector('#aistatus');
+    const done = () => { closeModal(); refreshHUD(); after && after(); };
+    sh.querySelector('#aiclose').onclick = done;
+    const clr = sh.querySelector('#aiclear');
+    if (clr) clr.onclick = () => { NPC.AI.clear(); toast('已清除 Key，改用规则对白'); done(); };
+    sh.querySelector('#aisave').onclick = async () => {
+      const key = sh.querySelector('#aikey').value.trim() || c.key || '';
+      const model = sh.querySelector('#aimodel').value;
+      if (!/^gsk_[A-Za-z0-9]{20,}$/.test(key)) { st.textContent = 'Key 格式不对：应以 gsk_ 开头。'; return; }
+      NPC.AI.save({ key, model, enabled: true });
+      st.textContent = '正在测试……';
+      try {
+        const out = await NPC.testAI();
+        st.textContent = `连接成功。小灯：「${out}」`;
+        toast('AI 对话已开启');
+        refreshHUD();
+      } catch (e) {
+        st.textContent = '连接失败：' + e.message + (e.message.includes('无效') ? '。请检查 Key 是否复制完整。' : '');
+      }
+    };
   });
 }

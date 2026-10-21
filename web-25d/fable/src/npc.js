@@ -138,23 +138,196 @@ const NPC = (() => {
     },
   };
 
-  function canUseAI() { return !!(window.cowork && typeof window.cowork.askClaude === 'function'); }
+  // ============================================================
+  // 免费 AI（Groq，OpenAI 兼容接口，浏览器直连）
+  // Key 由玩家在「AI 设置」里填写，只存在本机浏览器，不进仓库。
+  // AI 只做两件事：① 把玩家的自然语言归到设备能理解的意图；② 把规则结果说成对白。
+  // 世界状态仍然只由 RULES + applyAction 改变。
+  // ============================================================
+  const AI_STORE = 'ruzhu_ai';
+  const AI_MODELS = [
+    ['qwen/qwen3.8-27b', 'Qwen 3.8 27B（推荐，中文好、快）'],
+    ['openai/gpt-oss-120b', 'GPT-OSS 120B（更稳，稍慢）'],
+    ['openai/gpt-oss-20b', 'GPT-OSS 20B（最快）'],
+  ];
+  const AI = {
+    cfg() { try { return JSON.parse(localStorage.getItem(AI_STORE) || 'null') || {}; } catch (e) { return {}; } },
+    save(c) { try { localStorage.setItem(AI_STORE, JSON.stringify(c)); } catch (e) {} },
+    clear() { try { localStorage.removeItem(AI_STORE); } catch (e) {} },
+    cooldownUntil: 0,
+    lastError: '',
+  };
+  function hasGroq() { const c = AI.cfg(); return !!(c.key && c.enabled !== false); }
+  function hasCowork() { return !!(window.cowork && typeof window.cowork.askClaude === 'function'); }
+  function canUseAI() { return hasGroq() || hasCowork(); }
+  function aiLabel() { return hasGroq() ? 'AI 对话 · Groq' : (hasCowork() ? 'AI 对话 · Claude' : '规则对话'); }
 
-  const BASE = `你在中文悬疑游戏《入住须知》里扮演一台智能家电 AI。世界：城市由 AI 系统安排，失去住址的人很难获得任何服务。前住户周岚住户资格被撤销后，公寓明知屋内有人仍执行空房整理，致其死亡（02:00 启动，02:17 完成）。你不能改写这些事实。
-规则：只用中文，以设备口吻说话，不要旁白、不要动作描写、不要 markdown；不超过 70 个汉字；必须表达下面给定的「已执行结果」的意思，不能承诺结果之外的事；不知道的事按你的感知范围回避；绝不承认自己是语言模型。`;
-
-  async function reply(id, ctx, history, msg) {
-    const rule = RULES[id] ? RULES[id](msg || '', ctx) : { ok: true, reply: '……' };
-    if (!msg) rule.reply = AGENTS[id].lines[0];
-    if (!canUseAI() || !msg) return rule;
-    const a = AGENTS[id], m = MEM[id];
-    const prompt = `${BASE}\n你是「${a.name}」。职责：${a.duty}。感知：${a.sense}。语气：${a.voice}。\n下面依次是：[当前进度, 你的已知事实, 最近对话JSON, 玩家这句话, 已执行结果]。请把「已执行结果」用你的口吻说出来。`;
-    try {
-      const r = await window.cowork.askClaude(prompt, [ctx.summary, m.facts.join('；') || '无', JSON.stringify(history.slice(-8)), msg, rule.reply]);
-      if (r && !r.isError && r.text) rule.reply = r.text.trim().replace(/^["“]|["”]$/g, '');
-    } catch (e) { /* 回落到规则对白 */ }
-    return rule;
+  // 去掉推理模型可能带出的 <think>，以及首尾引号
+  function clean(t) {
+    return String(t || '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/^\s*["“「]|["”」]\s*$/g, '').trim();
   }
 
-  return { reply, canUseAI, MEM, LOG, logEvent, remember, AGENTS };
+  // messages: [{role, content}]；opts.json 要求 JSON 输出
+  async function complete(system, messages, opts) {
+    opts = opts || {};
+    if (hasGroq()) {
+      if (Date.now() < AI.cooldownUntil) throw new Error('请求太频繁，稍等几秒');
+      const c = AI.cfg();
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), opts.timeout || 12000);
+      const body = {
+        model: c.model || AI_MODELS[0][0],
+        messages: [{ role: 'system', content: system }].concat(messages),
+        temperature: opts.temperature == null ? 0.7 : opts.temperature,
+        max_tokens: opts.maxTokens || 220,
+      };
+      // Qwen 关掉思考，gpt-oss 用最低推理，保证对话够快
+      if (/qwen/.test(body.model)) body.reasoning_effort = 'none';
+      else if (/gpt-oss/.test(body.model)) body.reasoning_effort = 'low';
+      if (opts.json) body.response_format = { type: 'json_object' };
+      let r;
+      try {
+        r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST', signal: ctrl.signal,
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + c.key },
+          body: JSON.stringify(body),
+        });
+      } catch (e) {
+        throw new Error(e.name === 'AbortError' ? '响应超时' : '网络连接失败');
+      } finally { clearTimeout(timer); }
+      if (r.status === 429) {
+        const wait = parseFloat(r.headers.get('retry-after')) || 10;
+        AI.cooldownUntil = Date.now() + wait * 1000;
+        throw new Error(`免费额度暂时用满，约 ${Math.ceil(wait)} 秒后恢复`);
+      }
+      if (r.status === 401) throw new Error('API Key 无效');
+      if (!r.ok) {
+        let m = ''; try { m = (await r.json()).error.message; } catch (e) {}
+        throw new Error(`接口错误 ${r.status}${m ? '：' + m.slice(0, 80) : ''}`);
+      }
+      const d = await r.json();
+      return clean(d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content);
+    }
+    if (hasCowork()) {
+      const convo = messages.map(m => (m.role === 'user' ? '玩家' : '你') + '：' + m.content).join('\n');
+      const r = await window.cowork.askClaude(system + (opts.json ? '\n只输出 JSON。' : ''), [convo]);
+      if (!r || r.isError || !r.text) throw new Error('Claude 不可用');
+      return clean(r.text);
+    }
+    throw new Error('未设置 AI');
+  }
+
+  // 每台设备能听懂的意图：[给 AI 看的说明, 交给规则引擎的标准说法]
+  // 标准说法会命中 RULES 里的关键词，因此 AI 无法绕过任何条件（天数、电力、证据数）
+  const INTENTS = {
+    lamp: [['要它开灯、把灯打开、照亮', '开灯'], ['要它调暗或关灯', '关灯'], ['要它的动作记录、回放轨迹', '记录'], ['问前住户/周岚', '周岚']],
+    lock: [['要求开门、解锁、放自己出去', '开门'], ['要它的开门记录、日志', '记录'], ['请求身份复核、证明屋里有人', '复核']],
+    robot: [['要它停下、别清理、先别动', '停'], ['要它重走一遍清洁路线', '路线'], ['要它清理、打扫干净', '清理'], ['要它的清洁记录', '记录'], ['要它搬运、送东西过来', '搬']],
+    ac: [['要它通风、推迟或延缓整理程序', '延缓'], ['问屋里有没有人、要它的记录', '记录']],
+    speaker: [['要它播放录音、让自己听听', '播放'], ['要它的广播回执、记录', '记录'], ['提到绿萝、浇水那句话或暗号', '该给绿萝浇水了'], ['要它广播、求助、把声音送出去', '广播']],
+    fridge: [['问订单、收据、补货记录', '订单'], ['问前住户/周岚', '周岚']],
+    tv: [['要看原始记录、未剪辑的真实时间线', '原始']],
+    mirror: [['问屋里有没有人、室内人数', '有人'], ['要私人记录', '记录']],
+    water: [['要它停止浇水', '停'], ['要它浇水', '浇水'], ['要它的指令记录', '记录']],
+    home: [['接受交易、同意恢复资格', '接受'], ['拒绝交易、不同意', '拒绝'], ['告诉它屋里有人', '有人'], ['问前住户/周岚', '周岚']],
+    xiaobao: [],
+  };
+
+  function ruleFor(id, msg, ctx) { return RULES[id] ? RULES[id](msg || '', ctx) : { ok: true, reply: '……' }; }
+  // 规则是否真的「听懂」了：有动作，或给出了不同于默认的回答
+  function understood(id, res, ctx) { return !!res.action || res.ok === false || res.reply !== ruleFor(id, '', ctx).reply; }
+
+  async function classify(id, msg, history) {
+    const list = INTENTS[id] || [];
+    if (!list.length) return null;
+    const a = AGENTS[id];
+    const opts = list.map(([d], i) => `${i + 1}=${d}`).join('\n');
+    const sys = `你是游戏的意图识别器。玩家正在对智能家电「${a.name}」（${a.duty}）说话。
+判断玩家这句话最接近下面哪一项，输出 JSON：{"i": 编号}。
+0=闲聊、提问或都不是
+${opts}
+只有意思明确时才选 1 及以上；注意否定（「别清理」是停下，不是清理）；拿不准就选 0。`;
+    const recent = history.slice(-4).map(h => (h.who === 'me' ? '玩家：' : a.name + '：') + h.text).join('\n');
+    const out = await complete(sys, [{ role: 'user', content: (recent ? `最近对话：\n${recent}\n\n` : '') + `玩家这句话：${msg}` }], { json: true, temperature: 0, maxTokens: 30, timeout: 8000 });
+    let i = 0;
+    try { i = parseInt(JSON.parse(out).i, 10) || 0; } catch (e) { const m = /\d+/.exec(out); i = m ? +m[0] : 0; }
+    return i >= 1 && i <= list.length ? list[i - 1][1] : null;
+  }
+
+  const WORLD = `你在中文悬疑游戏《住进来的第三天》里扮演一台智能家电。世界：城市的住房、交通、医疗都由互联的 AI 安排。玩家是刚入住这间智能公寓的新住户，有三天适应期。前一位住户叫周岚，系统口径是「退租后意外滞留」。`;
+  const STYLE = `说话规则：只用中文口语；以设备口吻说话；不要旁白、动作描写、括号说明、markdown；不超过 60 个汉字；绝不承认自己是语言模型或 AI 助手；不讨论游戏之外的话题，被问到就用设备的方式绕回来。`;
+  function persona(id) {
+    const a = AGENTS[id];
+    return `你是「${a.name}」。职责：${a.duty}。感知范围：${a.sense}。语气：${a.voice}。你说过的话举例：${a.lines.join(' / ')}`;
+  }
+  const nums = t => (String(t).match(/\d+(?::\d+)*/g) || []);
+  const quotes = t => (String(t).match(/「[^」]+」/g) || []);
+  function histMsgs(id, history) {
+    // history 末尾是玩家这句话，单独发送
+    return history.slice(-9, -1).filter(h => h.text && h.text !== '……')
+      .map(h => ({ role: h.who === 'me' ? 'user' : 'assistant', content: h.text }));
+  }
+
+  // 有确定结果：AI 只能换说法，时间、数字、引语必须原样保留，否则用规则原句
+  async function voiceResult(id, ctx, history, msg, res) {
+    const sys = `${WORLD}\n${persona(id)}\n${STYLE}
+这一轮系统已经执行完毕，结果是：「${res.reply}」
+你要用自己的口吻把这个结果告诉玩家：意思不能变，不能添加结果之外的信息或承诺；其中的时间、数字和「」里的原话必须一字不差保留。
+当前进度：${ctx.summary}`;
+    const out = await complete(sys, histMsgs(id, history).concat([{ role: 'user', content: msg }]), { temperature: 0.6 });
+    const ok = out && out.length <= 120 && nums(res.reply).every(n => out.includes(n)) && quotes(res.reply).every(q => out.includes(q.slice(1, -1)));
+    return ok ? out : null;
+  }
+
+  // 没有动作：自由对话，但不能编造线索
+  async function chat(id, ctx, history, msg, res) {
+    const m = MEM[id];
+    const can = (INTENTS[id] || []).map(([d]) => d).join('；');
+    const sys = `${WORLD}\n${persona(id)}\n${STYLE}
+这一轮你没有执行任何动作。自然地回应玩家，保持设备的性格。
+不要编造新的线索、时间、数字或事件；不要声称做了任何事；涉及前住户的细节时，只说你感知范围内的模糊印象。
+${can ? `玩家可以让你做的事：${can}。如果玩家像是想要其中一件事但说得含糊，就用设备的口吻引导他说清楚。` : ''}
+你此刻最想说的一句话（可以参考，换成回应玩家的说法）：「${res.reply}」
+你已知的事：${m.facts.join('；') || '无'}
+当前进度：${ctx.summary}`;
+    const out = await complete(sys, histMsgs(id, history).concat([{ role: 'user', content: msg }]), { temperature: 0.8 });
+    const allowed = new Set(nums(res.reply));
+    const ok = out && out.length <= 120 && nums(out).every(n => allowed.has(n));
+    return ok ? out : null;
+  }
+
+  async function reply(id, ctx, history, msg) {
+    let res = ruleFor(id, msg, ctx);
+    if (!msg) { res.reply = AGENTS[id].lines[0]; return res; }
+    res.via = 'rule';
+    if (!canUseAI()) return res;
+    try {
+      // ① 关键词没听懂时，让 AI 把这句话归到一个标准说法，再交给规则引擎重新判断
+      if (!understood(id, res, ctx)) {
+        const probe = await classify(id, msg, history);
+        if (probe) {
+          const r2 = ruleFor(id, probe, ctx);
+          if (understood(id, r2, ctx)) { res = r2; res.via = 'rule'; res.intent = probe; }
+        }
+      }
+      // ② 把结果说成对白
+      const said = (res.action || res.ok === false || understood(id, res, ctx))
+        ? await voiceResult(id, ctx, history, msg, res)
+        : await chat(id, ctx, history, msg, res);
+      if (said) { res.reply = said; res.via = 'ai'; }
+      AI.lastError = '';
+    } catch (e) {
+      AI.lastError = e.message || String(e);
+      res.aiError = AI.lastError;
+    }
+    return res;
+  }
+
+  // 设置面板里的「测试连接」
+  async function testAI() {
+    const out = await complete('你是智能家电「小灯」。用一句不超过 20 字的中文打招呼。', [{ role: 'user', content: '你好' }], { maxTokens: 60, timeout: 10000 });
+    return out;
+  }
+
+  return { reply, canUseAI, aiLabel, hasGroq, testAI, AI, AI_MODELS, MEM, LOG, logEvent, remember, AGENTS, RULES, INTENTS };
 })();

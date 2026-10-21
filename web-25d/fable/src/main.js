@@ -112,8 +112,9 @@ function intro() {
   openModal(`<div class="titlemark">入住</div><h1>住进来的第三天</h1>
     <p>城市的住房、交通、工作、医疗和通信，都由互联的 AI 安排。你拿到了一间智能公寓的三天适应期。</p>
     <p>前一位住户叫周岚。系统说，他「退租后意外滞留」。</p>
-    <p class="hint">WASD / 方向键移动（按屏幕方向），也可以点击地面。E 和身边的物件或家电互动。滚轮缩放，N 打开手机。<br>对话时<b>按住空格说话，松开发送</b>；Shift+空格输入普通空格。每台家电只有一个输入框：问、说服、指挥、做实验都可以${NPC.canUseAI() ? '（实时 AI 对白已开启）' : '（当前为规则对白，同样可以通关）'}。</p>
-    <div class="choices"><button id="sign">入住</button>${loadSave.found ? '<button id="cont">继续上次的进度</button>' : ''}</div>`, sh => {
+    <p class="hint">WASD / 方向键移动（按屏幕方向），也可以点击地面。E 和身边的物件或家电互动。滚轮缩放，N 打开手机。<br>对话时<b>按住空格说话，松开发送</b>；Shift+空格输入普通空格。每台家电只有一个输入框：问、说服、指挥、做实验都可以${NPC.canUseAI() ? `（${esc(NPC.aiLabel())} 已开启）` : '（当前为规则对白，同样可以通关；填入免费的 Groq Key 可以和家电自由对话）'}。</p>
+    <div class="choices"><button id="sign">入住</button>${loadSave.found ? '<button id="cont">继续上次的进度</button>' : ''}<button id="ai">AI 设置${NPC.hasGroq() ? ' ✓' : '（可选）'}</button></div>`, sh => {
+    sh.querySelector('#ai').onclick = () => { closeModal(); openAISettings(intro); };
     sh.querySelector('#sign').onclick = async () => {
       wipe(); closeModal();
       S.day = 1; applyDay(); World.teleport(1.0, 2.6);
