@@ -15,3 +15,8 @@ __pycache__/
 screenshots/**
 !screenshots/v1.4/
 !screenshots/v1.4/review-choices.png
+
+# 2.5D prototype
+web-25d/fable/models_raw/
+web-25d/fable/previews/
+web-25d/fable/shots/
