@@ -130,7 +130,7 @@ World.onHover(label => { const p = $('prompt'); if (label) { p.textContent = lab
 World.onBlocked(room => toast(`${World.ROOMS[room].name}现在进不去`));
 World.onInteract(id => { if (modalOpen) return; const h = H[id]; if (h) h(); });
 World.start();
-Models.apply(World).then(n => { if (n) console.log('Tripo3D 模型已加载', n); });
+Models.apply(World).then(n => { World.rebuildColliders(); if (n) console.log('Tripo3D 模型已加载', n); });
 loadSave.found = loadSave();
 paintBadge();
 if (loadSave.found) applyDay(); else { S.day = 1; applyDay(); S.day = 0; refreshHUD(); }

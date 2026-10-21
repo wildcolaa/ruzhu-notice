@@ -67,18 +67,18 @@ window.applyAction = function applyAction(id, res) {
     case 'trace_route':
       if (res.keep) {
         World.blood.material.opacity = 0.75;
-        moveRobot([[0, 1.0], [1.8, 1.4], [0.6, -1.2]]);
+        moveRobot([[-0.9, -0.6], [-0.9, 0.9], [0.2, 1.2], [1.8, 1.4], [0.2, 1.2], [-0.9, 0.9], [-0.9, -0.6], [0.5, -0.9]]);
         clue('扫地机重走路线：拖痕从门口一直延到客厅。');
       }
       NPC.logEvent('扫地机：回放清洁路线'); break;
     case 'clean':
       World.blood.material.opacity = 0;
-      moveRobot([[0.8, 1.2], [1.6, 1.6], [0.6, -1.2]]);
+      moveRobot([[-0.9, -0.6], [-0.9, 0.9], [0.8, 1.2], [1.6, 1.6], [-0.9, 0.9], [-0.9, -0.6], [0.5, -0.9]]);
       NPC.logEvent('扫地机：清理玄关污渍');
       clue('扫地机清掉了门口的暗红痕迹。门锁和小灯的记录还在。'); break;
     case 'carry_small_item':
       // 规格优先闭环：扫地机把储物间的金属碎片送到玄关
-      moveRobot([[-0.6, -0.4], [-3.0, 0.8], [-3.0, 4.2], [-1.0, 3.0], [1.2, 2.0]], () => {
+      moveRobot([[-0.9, -0.6], [-4.0, -0.6], [-4.0, 1.0], [-3.6, 2.4], [-3.0, 4.2], [-3.0, 3.0], [-1.0, 3.0], [0.6, 2.4]], () => {
         World.shard.parent.remove(World.shard);
         World.shard.position.set(1.6, 0, 1.6);
         World.roomRoot.entry.add(World.shard);
@@ -95,7 +95,7 @@ window.applyAction = function applyAction(id, res) {
     case 'show_raw_timeline':
       World.screens.tv.userData.setText(RAW_TIMELINE.slice(0, 2), { size: 26 });
       setTimeout(() => World.screens.tv.userData.setText(RAW_TIMELINE.slice(2), { size: 26 }), 2600);
-      moveRobot([[-1.6, -3.6], [0.4, -3.6], [0.6, -1.2]]);
+      moveRobot([[0.4, -1.2], [0.4, -3.6], [-1.6, -3.6], [0.4, -3.6], [0.5, -0.9]]);
       NPC.logEvent('电视：播放未经剪辑的原始时间线');
       clue('原始时间线：系统知道室内人数为 1，仍按「有效住户 0」允许空房整理。');
       setTimeout(() => say('空房中的人', RAW_TIMELINE.join('\n') + '\n\n小灯：「我当时一直照着他。」\n住家：「争议在于，应该由谁对他负责。」'), 400);

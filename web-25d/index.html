@@ -3768,12 +3768,44 @@ const World = (() => {
     });
   }
   const WAINSCOT = 0x4a3a2c;
+  // 房间连通图：门洞路点（穿过门洞的那条线段）
+  const DOORS = [
+    ['living', 'bedroom', [[-5.5, -2.0], [-6.5, -2.0]]],
+    ['living', 'kitchen', [[0.5, -2.0], [1.5, -2.0]]],
+    ['kitchen', 'balcony', [[5.5, -2.0], [6.5, -2.0]]],
+    ['living', 'storage', [[-4.0, -0.5], [-4.0, 0.5]]],
+    ['living', 'entry', [[-0.9, -0.5], [-0.9, 0.5]]],
+    ['entry', 'storage', [[-1.5, 3.0], [-2.5, 3.0]]],
+    ['entry', 'bath', [[3.5, 3.0], [4.5, 3.0]]],
+    ['storage', 'plant', [[-5.5, 2.8], [-8.6, 2.8]]],
+  ];
+  // 某条房间边上的门洞位置：axis 'z' 表示边 z = v（沿 x 开口），'x' 表示边 x = v
+  function edgeGaps(axis, v) {
+    const out = [];
+    DOORS.forEach(([, , pts]) => {
+      const p = pts[0], q = pts[pts.length - 1];
+      const i = axis === 'z' ? 1 : 0, j = 1 - i;
+      if (Math.min(p[i], q[i]) < v && Math.max(p[i], q[i]) > v) out.push(p[j]);
+    });
+    return out;
+  }
+  // 切开一侧的矮护墙：在门洞处断开，否则人物会从护墙里穿过去
   function curb(parent, r) {
     const g = new THREE.Group(); g.name = 'cutaway'; parent.add(g);
-    box(g, r.x1 - r.x0, 0.55, 0.14, WAINSCOT, (r.x0 + r.x1) / 2, r.y, r.z1, { map: TEX.wood });
-    box(g, 0.14, 0.55, r.z1 - r.z0, WAINSCOT, r.x1, r.y, (r.z0 + r.z1) / 2, { map: TEX.wood });
-    box(g, r.x1 - r.x0 + 0.14, 0.04, 0.2, 0x2a1d14, (r.x0 + r.x1) / 2 + 0.07, r.y + 0.55, r.z1, { edges: false });
-    box(g, 0.2, 0.04, r.z1 - r.z0, 0x2a1d14, r.x1, r.y + 0.55, (r.z0 + r.z1) / 2, { edges: false });
+    const GAP = 0.8;
+    const split = (a, b, gaps) => {
+      let segs = [[a, b]];
+      gaps.forEach(c => { segs = segs.flatMap(([s, e]) => (c + GAP <= s || c - GAP >= e) ? [[s, e]] : [[s, c - GAP], [c + GAP, e]].filter(([u, w]) => w - u > 0.05)); });
+      return segs;
+    };
+    split(r.x0, r.x1, edgeGaps('z', r.z1)).forEach(([s, e]) => {
+      box(g, e - s, 0.55, 0.14, WAINSCOT, (s + e) / 2, r.y, r.z1, { map: TEX.wood });
+      box(g, e - s + (e === r.x1 ? 0.14 : 0), 0.04, 0.2, 0x2a1d14, (s + e) / 2 + (e === r.x1 ? 0.07 : 0), r.y + 0.55, r.z1, { edges: false });
+    });
+    split(r.z0, r.z1, edgeGaps('x', r.x1)).forEach(([s, e]) => {
+      box(g, 0.14, 0.55, e - s, WAINSCOT, r.x1, r.y, (s + e) / 2, { map: TEX.wood });
+      box(g, 0.2, 0.04, e - s, 0x2a1d14, r.x1, r.y + 0.55, (s + e) / 2, { edges: false });
+    });
     return g;
   }
   const veilMat = new THREE.MeshBasicMaterial({ color: 0x03050b, transparent: true, opacity: 0.32, depthWrite: false });
@@ -3796,7 +3828,7 @@ const World = (() => {
   wall(roomRoot.plant, -12, 0, -12, 6, H, -1.4);
   wall(roomRoot.storage, -6, 0, -2, 0, H, 0, [[1.2, 2.8]]);           // ↑ 客厅
   wall(roomRoot.storage, -6, 0, -6, 6, H, 0, [[2.0, 3.6]]);           // ← 设备间（台阶）
-  wall(roomRoot.entry, -2, 0, 4, 0, H, 0, [[2.0, 3.6]]);              // ↑ 客厅
+  wall(roomRoot.entry, -2, 0, 4, 0, H, 0, [[-1.7, -0.1]]);              // ↑ 客厅（门洞让开入户门）
   wall(roomRoot.entry, -2, 0, -2, 6, H, 0, [[2.2, 3.8]]);             // ← 储物间
   wall(roomRoot.bath, 4, 0, 10, 0, H, 0);
   wall(roomRoot.bath, 4, 0, 4, 6, H, 0, [[2.2, 3.8]]);                // ← 玄关
@@ -3853,11 +3885,11 @@ const World = (() => {
   reg('notice', table, '《住户须知》', [-4.6, -0.9]);
 
   // 扫地机：会真实移动的设备
-  const robot = group(-0.6, 0, -1.2);
+  const robot = group(0.5, 0, -0.9);
   cyl(robot, 0.32, 0.12, 0x2b3236, 0, 0, 0, 20);
   cyl(robot, 0.1, 0.03, 0x5ad1b8, 0, 0.12, 0, 12, { emissive: 0x1a6a5a });
   led('robot', robot, 0.32);
-  reg('robot', robot, '扫地机', [0, -0.6]);
+  reg('robot', robot, '扫地机', [-0.2, -1.4]);
 
   const blood = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.22), new THREE.MeshBasicMaterial({ color: 0x5a1410, transparent: true, opacity: 0.0, depthWrite: false }));
   blood.rotation.x = -Math.PI / 2; blood.position.set(1.0, 0.012, 1.2); blood.userData.keep = true;
@@ -3869,7 +3901,7 @@ const World = (() => {
   const planScreen = screen(fridge, 0.7, 0.5, ['订单', '照常补货'], 0, 1.4, 0.46, 0, { size: 44 });
   led('fridge', fridge, 2.3);
   reg('fridge', fridge, '冰箱', [2.0, -4.0]);
-  const counter = group(4.4, 0, -5.4);
+  const counter = group(4.4, 0, -5.4); counter.userData.solid = 'kitchen';
   box(counter, 2.6, 0.95, 0.9, 0xd8cdb8, 0, 0, 0);
   box(counter, 2.7, 0.06, 1.0, 0x5c4e3d, 0, 0.95, 0, { edges: false });
   const binG = group(5.4, 0, -2.2);
@@ -3947,9 +3979,9 @@ const World = (() => {
   box(statusScr, 0.55, 0.42, 0.06, 0x2e343b, 0, 1.4, 0);
   const camScreen = screen(statusScr, 0.46, 0.34, ['住户', '已确认'], 0, 1.61, 0.04, 0, { size: 46 });
   reg('status', statusScr, '状态屏', [2.6, 1.3]);
-  const shoes = group(-1.6, 0, 4.4);
+  const shoes = group(-1.6, 0, 4.8);
   box(shoes, 0.6, 0.9, 1.8, 0x9a7b58, 0, 0, 0);
-  reg('shoes', shoes, '鞋柜', [-0.8, 4.4]);
+  reg('shoes', shoes, '鞋柜', [-0.8, 4.8]);
 
   // 浴室：镜面、本地人数传感器
   const tub = group(7.8, 0, 1.2);
@@ -3979,7 +4011,7 @@ const World = (() => {
   const echoLight = new THREE.PointLight(0xc45c4a, 0.0, 6); echoLight.position.set(0, 1.2, 0.7); echo.add(echoLight);
   reg('reject_log', echo, '求助驳回记录机', [-9.8, 4.6]);
   // 储物间 → 设备间的台阶（在储物间西侧门洞外）
-  for (let i = 0; i < 5; i++) box(roomRoot.plant, 0.42, 0.28, 1.6, 0x8a7a66, -6.2 - i * 0.42, -0.28 * (i + 1), 2.8);
+  for (let i = 0; i < 5; i++) box(roomRoot.plant, 0.42, 1.4 - 0.28 * i, 1.6, 0x8a7a66, -6.2 - i * 0.42, -1.4, 2.8);
 
   // 住家：中枢，悬浮在客厅中央的暖色光环
   const qing = group(-1.4, 2.5, -3.0);
@@ -3994,11 +4026,11 @@ const World = (() => {
     ['deco_board', -10.0, 0, -5.92, '周岚的线索板', [-10.0, -4.6]],
     ['deco_lamp', -7.6, 0.55, -5.0, '台灯', [-7.6, -4.0]],
     ['deco_plant', 0.4, 0, -5.3, '绿植', [0.4, -4.2]],
-    ['deco_chair', -4.2, 0, -1.2, '转椅', [-4.2, -0.4]],
+    ['deco_chair', -5.0, 0, -1.25, '转椅', [-5.0, -0.5]],
     ['deco_phone', -4.8, 0.72, -2.2, '电话', [-4.8, -1.0]],
     ['deco_sidetable', -7.4, 0, -5.0, '床头柜', [-7.4, -4.0]],
     ['deco_typewriter', -4.3, 0.72, -1.9, '打字机', [-4.3, -0.9]],
-    ['deco_bin', -0.6, 0, -0.6, '废纸篓', [-0.6, 0.0]],
+    ['deco_bin', -5.5, 0, -3.6, '废纸篓', [-4.8, -3.6]],
     ['deco_clock', -3.0, 0, -5.92, '挂钟', [-3.0, -4.6]],
     ['deco_laundry', 9.2, 0, 4.8, '洗衣篮', [8.4, 4.8]],
     ['deco_stool', 6.4, 0, 2.6, '小凳', [6.4, 3.4]],
@@ -4209,33 +4241,7 @@ const World = (() => {
   });
   canvas.addEventListener('wheel', ev => { ev.preventDefault(); cam3.userZoom = Math.max(0.6, Math.min(1.35, cam3.userZoom + ev.deltaY * 0.0012)); }, { passive: false });
 
-  // 房间连通图：门洞路点
-  const DOORS = [
-    ['living', 'bedroom', [[-5.5, -2.0], [-6.5, -2.0]]],
-    ['living', 'kitchen', [[0.5, -2.0], [1.5, -2.0]]],
-    ['kitchen', 'balcony', [[5.5, -2.0], [6.5, -2.0]]],
-    ['living', 'storage', [[-4.0, -0.5], [-4.0, 0.5]]],
-    ['living', 'entry', [[0.8, -0.5], [0.8, 0.5]]],
-    ['entry', 'storage', [[-1.5, 3.0], [-2.5, 3.0]]],
-    ['entry', 'bath', [[3.5, 3.0], [4.5, 3.0]]],
-    ['storage', 'plant', [[-5.5, 2.8], [-8.6, 2.8]]],
-  ];
   let lockedRooms = new Set();
-  function roomPath(a, b) {
-    const prev = { [a]: null }, q = [a];
-    while (q.length) {
-      const r = q.shift(); if (r === b) break;
-      DOORS.forEach(([x, y, pts]) => {
-        [[x, y, pts], [y, x, pts.slice().reverse()]].forEach(([s, t, p]) => {
-          if (s === r && !(t in prev) && !lockedRooms.has(t)) { prev[t] = { from: r, pts: p }; q.push(t); }
-        });
-      });
-    }
-    if (!(b in prev)) return null;
-    const out = []; let cur = b;
-    while (prev[cur]) { out.unshift(...prev[cur].pts); cur = prev[cur].from; }
-    return out;
-  }
   // ---------- 出口：门洞处的发光地标，点击走到隔壁房间 ----------
   const exits = [];
   const exitTex = (() => {
@@ -4265,15 +4271,14 @@ const World = (() => {
     const from = roomAt(player.position.x, player.position.z) || 'entry';
     const to = roomAt(tgt.x, tgt.z) || from;
     if (lockedRooms.has(to) && to !== from) { onBlocked && onBlocked(to); return; }
-    const path = roomPath(from, to);
-    if (!path) { onBlocked && onBlocked(to); return; }
-    const raw = path.map(([x, z]) => new THREE.Vector3(x, 0, z)).concat([tgt]);
+    const path = planPath(player.position.x, player.position.z, tgt.x, tgt.z);
     const queue = [];
     let last = player.position.clone();
-    raw.forEach(pt => {
-      if (last.distanceTo(pt) > 0.12) queue.push(pt);
-      last = pt;
+    path.forEach(([x, z]) => {
+      const pt = new THREE.Vector3(x, 0, z);
+      if (last.distanceTo(pt) > 0.12) { queue.push(pt); last = pt; }
     });
+    if (queue.length) tgt.copy(queue[queue.length - 1]);
     if (!queue.length) { cb && cb(); return; }
     walk = { queue, tgt: queue.shift(), cb };
     marker.position.set(tgt.x, floorY(tgt.x, tgt.z) + 0.03, tgt.z); marker.visible = true;
@@ -4291,21 +4296,147 @@ const World = (() => {
   });
   window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
   window.addEventListener('blur', () => keys.clear());
-  // 能否站在 (x, z)：在未锁房间内部，或在连通两个房间的门洞走廊里
-  function walkable(x, z) {
-    const M = 0.28;
+  // ---------- 碰撞 ----------
+  // 墙：只能站在房间内部（离墙 WM）或门洞走廊里。
+  // 家具：按实际可见网格（含 Tripo 模型）在地面附近的包围盒，外扩角色半径 PR。
+  const WM = 0.36, PR = 0.26, ROBOT_R = 0.32;
+  // 楼梯两侧：只能从梯子两头上下
+  const STAIR_SIDES = [{ x0: -8.3, x1: -6.0, z0: 1.9, z1: 2.0 }, { x0: -8.3, x1: -6.0, z0: 3.6, z1: 3.7 }];
+  const NO_COLLIDE = new Set(['robot', 'shard', 'scratch', 'status', 'city', 'home', 'ac']);
+  let colliders = [];
+  function chainVisible(o, stop) {
+    for (let p = o; p && p !== stop; p = p.parent) if (!p.visible) return false;
+    return true;
+  }
+  function solidBox(obj, baseY) {
+    const b = new THREE.Box3(), mb = new THREE.Box3();
+    let any = false;
+    obj.updateMatrixWorld(true);
+    obj.traverse(o => {
+      if (!o.isMesh || !chainVisible(o, obj.parent)) return;
+      mb.setFromObject(o);
+      if (mb.isEmpty() || mb.min.y > baseY + 0.5) return;   // 挂墙 / 悬空 / 桌面小物不挡路
+      if (!any) { b.copy(mb); any = true; } else b.union(mb);
+    });
+    if (!any) return null;
+    const S = 0.04;   // 模型包围盒四角通常是空的，略收一点
+    return { x0: b.min.x + S - PR, x1: b.max.x - S + PR, z0: b.min.z + S - PR, z1: b.max.z - S + PR, id: obj.userData.iid || 'solid' };
+  }
+  function rebuildColliders() {
+    colliders = STAIR_SIDES.map(c => ({ x0: c.x0 - PR, x1: c.x1 + PR, z0: c.z0 - PR, z1: c.z1 + PR, id: 'stairs' }));
+    Object.values(interact).forEach(it => {
+      if (!it.visible || NO_COLLIDE.has(it.id)) return;
+      const c = solidBox(it.obj, ROOMS[it.room] ? ROOMS[it.room].y : 0);
+      if (c) { c.id = it.id; colliders.push(c); }
+    });
+    root.traverse(o => { if (o.userData.solid) { const c = solidBox(o, ROOMS[o.userData.solid].y); if (c) colliders.push(c); } });
+    // 站位点落在家具里的，挪到同房间最近的空地
+    Object.values(interact).forEach(it => {
+      if (walkable(it.stand.x, it.stand.z)) return;
+      const p = nearestFree(it.stand.x, it.stand.z, it.room);
+      if (p) it.stand.set(p[0], 0, p[1]);
+    });
+  }
+  const inBox = (c, x, z) => x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1;
+  function inSpace(x, z, ignoreLocks) {
     for (const [k, r] of Object.entries(ROOMS)) {
-      if (lockedRooms.has(k)) continue;
-      if (x > r.x0 + M && x < r.x1 - M && z > r.z0 + M && z < r.z1 - M) return true;
+      if (!ignoreLocks && lockedRooms.has(k)) continue;
+      if (x > r.x0 + WM && x < r.x1 - WM && z > r.z0 + WM && z < r.z1 - WM) return true;
     }
     for (const [a, b, pts] of DOORS) {
-      if (lockedRooms.has(a) || lockedRooms.has(b)) continue;
+      if (!ignoreLocks && (lockedRooms.has(a) || lockedRooms.has(b))) continue;
       const [p, q] = [pts[0], pts[pts.length - 1]];
       const minx = Math.min(p[0], q[0]) - 0.45, maxx = Math.max(p[0], q[0]) + 0.45;
       const minz = Math.min(p[1], q[1]) - 0.45, maxz = Math.max(p[1], q[1]) + 0.45;
       if (x >= minx && x <= maxx && z >= minz && z <= maxz) return true;
     }
     return false;
+  }
+  // 能否站在 (x, z)。from：当前所在点——已经陷在某个碰撞体里时（被瞬移进去、扫地机撞过来）允许走出来
+  function walkable(x, z, from, opt) {
+    opt = opt || {};
+    if (!inSpace(x, z, opt.ignoreLocks)) return false;
+    for (const c of colliders) {
+      if (!inBox(c, x, z)) continue;
+      if (from && inBox(c, from.x, from.z)) continue;
+      return false;
+    }
+    if (!opt.noRobot && robot.visible) {
+      const rr = ROBOT_R + PR, dx = x - robot.position.x, dz = z - robot.position.z;
+      if (dx * dx + dz * dz < rr * rr && !(from && Math.hypot(from.x - robot.position.x, from.z - robot.position.z) < rr)) return false;
+    }
+    return true;
+  }
+  function nearestFree(x, z, room, opt) {
+    for (let r = 0.05; r <= 2.0; r += 0.05) {
+      let best = null, bd = Infinity;
+      for (let a = 0; a < 32; a++) {
+        const px = x + Math.cos(a / 32 * Math.PI * 2) * r, pz = z + Math.sin(a / 32 * Math.PI * 2) * r;
+        if (room && roomAt(px, pz) !== room) continue;
+        if (walkable(px, pz, null, opt)) { const d = Math.hypot(px - x, pz - z); if (d < bd) { bd = d; best = [px, pz]; } }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+
+  // ---------- 寻路：0.1m 网格 Dijkstra，再拉直 ----------
+  const GS = 0.1, GX0 = -12, GZ0 = -6, GW = 220, GH = 120;
+  const cellOf = (x, z) => [Math.max(0, Math.min(GW - 1, Math.floor((x - GX0) / GS))), Math.max(0, Math.min(GH - 1, Math.floor((z - GZ0) / GS)))];
+  const cellCenter = i => [GX0 + (i % GW + 0.5) * GS, GZ0 + (Math.floor(i / GW) + 0.5) * GS];
+  // 返回从 (sx,sz) 走到离 (tx,tz) 最近的可达点的折线 [[x,z], ...]（不含起点）
+  function planPath(sx, sz, tx, tz, opt) {
+    const from = { x: sx, z: sz };
+    const pass = new Uint8Array(GW * GH);
+    for (let i = 0; i < GW * GH; i++) { const [x, z] = cellCenter(i); pass[i] = walkable(x, z, from, opt) ? 1 : 0; }
+    const [scx, scz] = cellOf(sx, sz), start = scz * GW + scx;
+    pass[start] = 1;
+    const dist = new Float64Array(GW * GH).fill(Infinity), prev = new Int32Array(GW * GH).fill(-1);
+    // 二叉堆
+    const heap = [];
+    const push = (i, d) => { heap.push([d, i]); let k = heap.length - 1; while (k > 0) { const p = (k - 1) >> 1; if (heap[p][0] <= heap[k][0]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; k = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+    dist[start] = 0; push(start, 0);
+    const NB = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
+    let best = start, bestD = Math.hypot(sx - tx, sz - tz);
+    while (heap.length) {
+      const [d, i] = pop();
+      if (d > dist[i]) continue;
+      const [cx, cz] = cellCenter(i), td = Math.hypot(cx - tx, cz - tz);
+      if (td < bestD - 1e-6) { bestD = td; best = i; }
+      const gx = i % GW, gz = Math.floor(i / GW);
+      for (const [ox, oz, w] of NB) {
+        const nx = gx + ox, nz = gz + oz;
+        if (nx < 0 || nz < 0 || nx >= GW || nz >= GH) continue;
+        const j = nz * GW + nx;
+        if (!pass[j]) continue;
+        if (ox && oz && (!pass[gz * GW + nx] || !pass[nz * GW + gx])) continue;   // 不切墙角
+        const nd = d + w;
+        if (nd < dist[j]) { dist[j] = nd; prev[j] = i; push(j, nd); }
+      }
+    }
+    const cells = [];
+    for (let i = best; i !== -1; i = prev[i]) cells.unshift(i);
+    const pts = cells.map(cellCenter);
+    pts[0] = [sx, sz];
+    // 终点：目标本身可站就用目标，否则用最近可达格
+    if (best !== start || bestD < GS) {
+      const [bx, bz] = cellOf(tx, tz);
+      if (bz * GW + bx === best && walkable(tx, tz, from, opt)) pts[pts.length - 1] = [tx, tz];
+    }
+    // 拉直：能直线走到的点就跳过中间格
+    const clear = (a, b) => {
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / 0.05);
+      for (let k = 1; k < n; k++) { const t = k / n; if (!walkable(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, from, opt)) return false; }
+      return true;
+    };
+    const out = []; let a = 0;
+    while (a < pts.length - 1) {
+      let b = pts.length - 1;
+      while (b > a + 1 && !clear(pts[a], pts[b])) b--;
+      out.push(pts[b]); a = b;
+    }
+    return out;
   }
   function keyMove(dt) {
     if (!keys.size || locked) return false;
@@ -4322,9 +4453,9 @@ const World = (() => {
     mx /= len; mz /= len;
     const step = 3.6 * dt, p = player.position;
     // 分轴尝试，贴墙时可以顺着墙滑动
-    if (walkable(p.x + mx * step, p.z + mz * step)) { p.x += mx * step; p.z += mz * step; }
-    else if (walkable(p.x + mx * step, p.z)) p.x += mx * step;
-    else if (walkable(p.x, p.z + mz * step)) p.z += mz * step;
+    if (walkable(p.x + mx * step, p.z + mz * step, p)) { p.x += mx * step; p.z += mz * step; }
+    else if (walkable(p.x + mx * step, p.z, p)) p.x += mx * step;
+    else if (walkable(p.x, p.z + mz * step, p)) p.z += mz * step;
     const desired = Math.atan2(mx, mz);
     let dy = desired - player.rotation.y;
     while (dy > Math.PI) dy -= Math.PI * 2;
@@ -4517,7 +4648,7 @@ const World = (() => {
   }
 
   return {
-    start() { resize(); showRoom(roomAt(player.position.x, player.position.z) || 'entry', true); loop(); },
+    start() { rebuildColliders(); resize(); showRoom(roomAt(player.position.x, player.position.z) || 'entry', true); loop(); },
     showRoom, activeRoom: () => activeRoom,
     onRoomChange(fn) { onRoomChange = fn; },
     interact, ROOMS,
@@ -4528,9 +4659,11 @@ const World = (() => {
     setLockedRooms(arr) { lockedRooms = new Set(arr); },
     isWalking: () => !!walk,
     lock(v) { locked = v; if (v) { setHighlight(hoverId, false); hoverId = null; onHover && onHover(null); } },
-    setVisible(id, v) { interact[id].visible = v; interact[id].obj.visible = v; },
+    setVisible(id, v) { interact[id].visible = v; interact[id].obj.visible = v; rebuildColliders(); },
+    rebuildColliders, planPath, walkable, colliders: () => colliders,
     setMood, goTo,
     teleport(x, z) {
+      if (!walkable(x, z)) { const f = nearestFree(x, z, roomAt(x, z), { ignoreLocks: true }); if (f) { x = f[0]; z = f[1]; } }
       player.position.set(x, floorY(x, z), z); walk = null; marker.visible = false;
       const k = roomAt(x, z); if (k) { pendingRoom = null; fadeDir = 0; showRoom(k, true); }
     },
@@ -5369,18 +5502,18 @@ window.applyAction = function applyAction(id, res) {
     case 'trace_route':
       if (res.keep) {
         World.blood.material.opacity = 0.75;
-        moveRobot([[0, 1.0], [1.8, 1.4], [0.6, -1.2]]);
+        moveRobot([[-0.9, -0.6], [-0.9, 0.9], [0.2, 1.2], [1.8, 1.4], [0.2, 1.2], [-0.9, 0.9], [-0.9, -0.6], [0.5, -0.9]]);
         clue('扫地机重走路线：拖痕从门口一直延到客厅。');
       }
       NPC.logEvent('扫地机：回放清洁路线'); break;
     case 'clean':
       World.blood.material.opacity = 0;
-      moveRobot([[0.8, 1.2], [1.6, 1.6], [0.6, -1.2]]);
+      moveRobot([[-0.9, -0.6], [-0.9, 0.9], [0.8, 1.2], [1.6, 1.6], [-0.9, 0.9], [-0.9, -0.6], [0.5, -0.9]]);
       NPC.logEvent('扫地机：清理玄关污渍');
       clue('扫地机清掉了门口的暗红痕迹。门锁和小灯的记录还在。'); break;
     case 'carry_small_item':
       // 规格优先闭环：扫地机把储物间的金属碎片送到玄关
-      moveRobot([[-0.6, -0.4], [-3.0, 0.8], [-3.0, 4.2], [-1.0, 3.0], [1.2, 2.0]], () => {
+      moveRobot([[-0.9, -0.6], [-4.0, -0.6], [-4.0, 1.0], [-3.6, 2.4], [-3.0, 4.2], [-3.0, 3.0], [-1.0, 3.0], [0.6, 2.4]], () => {
         World.shard.parent.remove(World.shard);
         World.shard.position.set(1.6, 0, 1.6);
         World.roomRoot.entry.add(World.shard);
@@ -5397,7 +5530,7 @@ window.applyAction = function applyAction(id, res) {
     case 'show_raw_timeline':
       World.screens.tv.userData.setText(RAW_TIMELINE.slice(0, 2), { size: 26 });
       setTimeout(() => World.screens.tv.userData.setText(RAW_TIMELINE.slice(2), { size: 26 }), 2600);
-      moveRobot([[-1.6, -3.6], [0.4, -3.6], [0.6, -1.2]]);
+      moveRobot([[0.4, -1.2], [0.4, -3.6], [-1.6, -3.6], [0.4, -3.6], [0.5, -0.9]]);
       NPC.logEvent('电视：播放未经剪辑的原始时间线');
       clue('原始时间线：系统知道室内人数为 1，仍按「有效住户 0」允许空房整理。');
       setTimeout(() => say('空房中的人', RAW_TIMELINE.join('\n') + '\n\n小灯：「我当时一直照着他。」\n住家：「争议在于，应该由谁对他负责。」'), 400);
@@ -5615,7 +5748,7 @@ World.onHover(label => { const p = $('prompt'); if (label) { p.textContent = lab
 World.onBlocked(room => toast(`${World.ROOMS[room].name}现在进不去`));
 World.onInteract(id => { if (modalOpen) return; const h = H[id]; if (h) h(); });
 World.start();
-Models.apply(World).then(n => { if (n) console.log('Tripo3D 模型已加载', n); });
+Models.apply(World).then(n => { World.rebuildColliders(); if (n) console.log('Tripo3D 模型已加载', n); });
 loadSave.found = loadSave();
 paintBadge();
 if (loadSave.found) applyDay(); else { S.day = 1; applyDay(); S.day = 0; refreshHUD(); }
