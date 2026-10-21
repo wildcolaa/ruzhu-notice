@@ -50,7 +50,10 @@ function openModal(html, onMount) {
   const first = m.querySelector('input, button'); first && first.focus();
   onMount && onMount(m.firstChild);
 }
-function closeModal() { $('modal').classList.remove('show'); $('modal').innerHTML = ''; modalOpen = false; World.lock(false); setTimeout(flushSay, 120); }
+function closeModal() {
+  if (detachVoice) { detachVoice(); detachVoice = null; }
+  $('modal').classList.remove('show'); $('modal').innerHTML = ''; modalOpen = false; World.lock(false); setTimeout(flushSay, 120);
+}
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape' && modalOpen && !closeModal.block) closeModal();
   if ((e.key === 'n' || e.key === 'N') && !modalOpen && S.day) openPhone();
@@ -135,6 +138,80 @@ function openPhone() {
   });
 }
 
+// ---------- 语音输入：按住空格说话，松开发送 ----------
+const Voice = (() => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, active = false, text = '', onDone = null, onStatus = null;
+  function supported() { return !!SR; }
+  function start(statusCb, doneCb) {
+    if (!SR) { statusCb && statusCb('这个浏览器不支持语音识别，请用 Chrome 或 Edge，或直接打字。'); return false; }
+    if (active) return true;
+    onStatus = statusCb; onDone = doneCb; text = '';
+    rec = new SR();
+    rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = true;
+    rec.onresult = e => {
+      let s = '';
+      for (let i = 0; i < e.results.length; i++) s += e.results[i][0].transcript;
+      text = s; onStatus && onStatus('正在听：' + s, s);
+    };
+    rec.onerror = e => {
+      const msg = e.error === 'not-allowed' || e.error === 'service-not-allowed'
+        ? '麦克风权限被拒绝。允许浏览器使用麦克风后，再按住空格。'
+        : e.error === 'no-speech' ? '没有听到声音。' : '语音识别出错：' + e.error;
+      onStatus && onStatus(msg); active = false;
+    };
+    rec.onend = () => { if (active) { active = false; const t = text.trim(); onDone && onDone(t); } };
+    try { rec.start(); active = true; onStatus && onStatus('正在听……松开空格发送'); return true; }
+    catch (e) { onStatus && onStatus('无法启动麦克风。'); return false; }
+  }
+  function stop() { if (rec && active) { try { rec.stop(); } catch (e) {} } }
+  function cancel() { if (rec) { active = false; try { rec.abort(); } catch (e) {} } }
+  return { supported, start, stop, cancel, isActive: () => active };
+})();
+// 切出浏览器时取消录音
+window.addEventListener('blur', () => Voice.cancel());
+document.addEventListener('visibilitychange', () => { if (document.hidden) Voice.cancel(); });
+
+// 给一个对话窗口挂上「按住空格说话」
+function attachVoice(sh, send) {
+  const input = sh.querySelector('#msg');
+  const status = sh.querySelector('#vstatus');
+  const mic = sh.querySelector('#mic');
+  let holding = false;
+  const setStatus = (msg, live) => {
+    status.textContent = msg || '';
+    if (live != null) input.value = live;
+  };
+  const begin = () => {
+    if (holding) return; holding = true;
+    mic.classList.add('rec');
+    Voice.start(setStatus, t => {
+      mic.classList.remove('rec');
+      if (t) { input.value = t; send(); setStatus(''); }
+      else if (!status.textContent.startsWith('麦克风') && !status.textContent.startsWith('这个')) setStatus('没有识别到内容。');
+    });
+  };
+  const end = () => { if (!holding) return; holding = false; Voice.stop(); };
+  const onDown = e => {
+    // 空格开始录音；Shift+空格仍然输入普通空格
+    // 中文输入法用空格选字：组字过程中不拦截
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.code !== 'Space' || e.shiftKey || e.repeat) { if (e.code === 'Space' && e.repeat && holding) e.preventDefault(); return; }
+    if (document.activeElement && document.activeElement.tagName === 'BUTTON') return;
+    e.preventDefault(); begin();
+  };
+  const onUp = e => { if (e.code === 'Space' && holding) { e.preventDefault(); end(); } };
+  document.addEventListener('keydown', onDown, true);
+  document.addEventListener('keyup', onUp, true);
+  mic.addEventListener('pointerdown', e => { e.preventDefault(); begin(); });
+  mic.addEventListener('pointerup', end);
+  mic.addEventListener('pointerleave', end);
+  if (!Voice.supported()) setStatus('提示：此浏览器不支持语音识别，可以直接打字。');
+  // 对话关闭时卸载
+  return () => { Voice.cancel(); document.removeEventListener('keydown', onDown, true); document.removeEventListener('keyup', onUp, true); };
+}
+let detachVoice = null;
+
 // ---------- 设备对话：统一输入框 ----------
 function ctxSummary() {
   return `第${S.day}天，${clockText()}。已发现：${S.clues.slice(-6).join('；') || '无'}。独立记录 ${evidenceCount()} 份。`;
@@ -146,7 +223,8 @@ async function openChat(id) {
   const html = `<h2>${esc(a.name)}<span class="hint" style="margin-left:10px">${esc(a.duty)} · ${NPC.canUseAI() ? '实时对话' : '规则对话'}</span></h2>
     <p class="hint">感知：${esc(a.sense)}</p>
     <div class="chatlog" id="log" aria-live="polite"></div>
-    <div class="row"><input id="msg" placeholder="问、说服、指挥，或做个实验……回车发送" aria-label="对设备说话" autocomplete="off"/><button class="primary" id="send" style="margin-top:0">发送</button></div>
+    <div class="row"><input id="msg" placeholder="按住空格说话，或打字后回车" aria-label="对设备说话" autocomplete="off"/><button class="mic" id="mic" type="button" aria-label="按住说话" title="按住说话"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="primary" id="send" style="margin-top:0">发送</button></div>
+    <p class="hint" id="vstatus" aria-live="polite"></p>
     <button class="primary" id="bye">结束对话</button>`;
   openModal(html, async sh => {
     const log = sh.querySelector('#log');
@@ -166,6 +244,7 @@ async function openChat(id) {
     const send = () => { const i = sh.querySelector('#msg'); const v = i.value.trim(); if (!v) return; i.value = ''; speak(v); };
     sh.querySelector('#send').onclick = send;
     sh.querySelector('#msg').onkeydown = e => { if (e.key === 'Enter') send(); };
+    detachVoice = attachVoice(sh, send);
     render();
     if (S.greeted[id] !== S.day) { S.greeted[id] = S.day; await speak(null); }
   });

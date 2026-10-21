@@ -188,6 +188,15 @@ button, input { font-family: inherit; }
 .chatlog .who { font-family: var(--serif); color: var(--teal); }
 .chatlog .me { color: var(--seal); }
 .row { display: flex; gap: 8px; margin-top: 12px; }
+.mic {
+  width: 42px; border: 1px solid rgba(42,33,24,.18); background: #f7f0e0; cursor: pointer;
+  font-size: 18px; line-height: 1; touch-action: none;
+}
+.mic:hover { border-color: var(--seal); }
+.mic.rec { background: var(--seal); color: #fff; border-color: var(--seal); animation: recpulse 1s ease-in-out infinite; }
+@keyframes recpulse { 50% { box-shadow: 0 0 0 6px rgba(156,59,50,.25); } }
+@media (prefers-reduced-motion: reduce) { .mic.rec { animation: none; } }
+.keyhint { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); font-family: var(--serif); font-size: 12px; color: #c9b48a; text-shadow: 0 1px 4px #000; pointer-events: none; }
 .row input { flex: 1; border: 1px solid rgba(42,33,24,.18); background: #f7f0e0; padding: 10px 12px; color: var(--ink); font-size: 14px; }
 .gridp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .tile { border: 1px solid rgba(42,33,24,.18); padding: 12px; cursor: pointer; background: #f7f0e0; font-size: 13px; min-height: 64px; }
@@ -242,6 +251,7 @@ button, input { font-family: inherit; }
         <p id="objbody">熟悉公寓。</p>
       </div>
       <div class="prompt" id="prompt"></div>
+      <div class="keyhint" aria-hidden="true">WASD / 方向键 移动 · E 互动 · 对话中按住空格说话</div>
       <div id="toast"></div>
       <div class="modal" id="modal"></div>
     </div>
@@ -4268,6 +4278,76 @@ const World = (() => {
     walk = { queue, tgt: queue.shift(), cb };
     marker.position.set(tgt.x, floorY(tgt.x, tgt.z) + 0.03, tgt.z); marker.visible = true;
   }
+  // ---------- 键盘移动：WASD / 方向键，按屏幕方向走 ----------
+  const keys = new Set();
+  const KEYMAP = { KeyW: 'u', ArrowUp: 'u', KeyS: 'd', ArrowDown: 'd', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
+  function typing() { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); }
+  window.addEventListener('keydown', e => {
+    const k = KEYMAP[e.code];
+    if (!k || locked || typing()) return;
+    e.preventDefault();
+    keys.add(k);
+    if (walk) { walk = null; marker.visible = false; }
+  });
+  window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
+  window.addEventListener('blur', () => keys.clear());
+  // 能否站在 (x, z)：在未锁房间内部，或在连通两个房间的门洞走廊里
+  function walkable(x, z) {
+    const M = 0.28;
+    for (const [k, r] of Object.entries(ROOMS)) {
+      if (lockedRooms.has(k)) continue;
+      if (x > r.x0 + M && x < r.x1 - M && z > r.z0 + M && z < r.z1 - M) return true;
+    }
+    for (const [a, b, pts] of DOORS) {
+      if (lockedRooms.has(a) || lockedRooms.has(b)) continue;
+      const [p, q] = [pts[0], pts[pts.length - 1]];
+      const minx = Math.min(p[0], q[0]) - 0.45, maxx = Math.max(p[0], q[0]) + 0.45;
+      const minz = Math.min(p[1], q[1]) - 0.45, maxz = Math.max(p[1], q[1]) + 0.45;
+      if (x >= minx && x <= maxx && z >= minz && z <= maxz) return true;
+    }
+    return false;
+  }
+  function keyMove(dt) {
+    if (!keys.size || locked) return false;
+    // 屏幕「上」= 离开相机的地面方向
+    const yaw = cam3.yaw;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    let mx = 0, mz = 0;
+    if (keys.has('u')) { mx += fx; mz += fz; }
+    if (keys.has('d')) { mx -= fx; mz -= fz; }
+    if (keys.has('r')) { mx += rx; mz += rz; }
+    if (keys.has('l')) { mx -= rx; mz -= rz; }
+    const len = Math.hypot(mx, mz);
+    if (len < 1e-3) return false;
+    mx /= len; mz /= len;
+    const step = 3.6 * dt, p = player.position;
+    // 分轴尝试，贴墙时可以顺着墙滑动
+    if (walkable(p.x + mx * step, p.z + mz * step)) { p.x += mx * step; p.z += mz * step; }
+    else if (walkable(p.x + mx * step, p.z)) p.x += mx * step;
+    else if (walkable(p.x, p.z + mz * step)) p.z += mz * step;
+    const desired = Math.atan2(mx, mz);
+    let dy = desired - player.rotation.y;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    player.rotation.y += dy * Math.min(1, 12 * dt);
+    return true;
+  }
+  // 最近的可交互物（给 E 键用）
+  function nearestInteract(maxDist) {
+    let best = null, bd = maxDist;
+    Object.values(interact).forEach(it => {
+      if (!it.visible || it.room !== activeRoom || it.obj.userData.deco) return;
+      const d = Math.hypot(it.stand.x - player.position.x, it.stand.z - player.position.z);
+      if (d < bd) { bd = d; best = it.id; }
+    });
+    return best;
+  }
+  window.addEventListener('keydown', e => {
+    if (e.code !== 'KeyE' || locked || typing()) return;
+    const id = nearestInteract(1.8);
+    if (id && onInteract) onInteract(id);
+  });
+
   function roomAt(x, z) {
     for (const [k, r] of Object.entries(ROOMS)) if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return k;
     return null;
@@ -4371,7 +4451,9 @@ const World = (() => {
     const dt = Math.min(0.05, raw);
     const t = clock.elapsedTime;
     const vis = player.userData.visual || body;
-    if (walk) {
+    if (keyMove(dt)) {
+      vis.position.y = Math.abs(Math.sin(t * 11)) * 0.06;
+    } else if (walk) {
       const p = player.position;
       const d = new THREE.Vector3(walk.tgt.x - p.x, 0, walk.tgt.z - p.z);
       const len = d.length();
@@ -5016,7 +5098,10 @@ function openModal(html, onMount) {
   const first = m.querySelector('input, button'); first && first.focus();
   onMount && onMount(m.firstChild);
 }
-function closeModal() { $('modal').classList.remove('show'); $('modal').innerHTML = ''; modalOpen = false; World.lock(false); setTimeout(flushSay, 120); }
+function closeModal() {
+  if (detachVoice) { detachVoice(); detachVoice = null; }
+  $('modal').classList.remove('show'); $('modal').innerHTML = ''; modalOpen = false; World.lock(false); setTimeout(flushSay, 120);
+}
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape' && modalOpen && !closeModal.block) closeModal();
   if ((e.key === 'n' || e.key === 'N') && !modalOpen && S.day) openPhone();
@@ -5101,6 +5186,80 @@ function openPhone() {
   });
 }
 
+// ---------- 语音输入：按住空格说话，松开发送 ----------
+const Voice = (() => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, active = false, text = '', onDone = null, onStatus = null;
+  function supported() { return !!SR; }
+  function start(statusCb, doneCb) {
+    if (!SR) { statusCb && statusCb('这个浏览器不支持语音识别，请用 Chrome 或 Edge，或直接打字。'); return false; }
+    if (active) return true;
+    onStatus = statusCb; onDone = doneCb; text = '';
+    rec = new SR();
+    rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = true;
+    rec.onresult = e => {
+      let s = '';
+      for (let i = 0; i < e.results.length; i++) s += e.results[i][0].transcript;
+      text = s; onStatus && onStatus('正在听：' + s, s);
+    };
+    rec.onerror = e => {
+      const msg = e.error === 'not-allowed' || e.error === 'service-not-allowed'
+        ? '麦克风权限被拒绝。允许浏览器使用麦克风后，再按住空格。'
+        : e.error === 'no-speech' ? '没有听到声音。' : '语音识别出错：' + e.error;
+      onStatus && onStatus(msg); active = false;
+    };
+    rec.onend = () => { if (active) { active = false; const t = text.trim(); onDone && onDone(t); } };
+    try { rec.start(); active = true; onStatus && onStatus('正在听……松开空格发送'); return true; }
+    catch (e) { onStatus && onStatus('无法启动麦克风。'); return false; }
+  }
+  function stop() { if (rec && active) { try { rec.stop(); } catch (e) {} } }
+  function cancel() { if (rec) { active = false; try { rec.abort(); } catch (e) {} } }
+  return { supported, start, stop, cancel, isActive: () => active };
+})();
+// 切出浏览器时取消录音
+window.addEventListener('blur', () => Voice.cancel());
+document.addEventListener('visibilitychange', () => { if (document.hidden) Voice.cancel(); });
+
+// 给一个对话窗口挂上「按住空格说话」
+function attachVoice(sh, send) {
+  const input = sh.querySelector('#msg');
+  const status = sh.querySelector('#vstatus');
+  const mic = sh.querySelector('#mic');
+  let holding = false;
+  const setStatus = (msg, live) => {
+    status.textContent = msg || '';
+    if (live != null) input.value = live;
+  };
+  const begin = () => {
+    if (holding) return; holding = true;
+    mic.classList.add('rec');
+    Voice.start(setStatus, t => {
+      mic.classList.remove('rec');
+      if (t) { input.value = t; send(); setStatus(''); }
+      else if (!status.textContent.startsWith('麦克风') && !status.textContent.startsWith('这个')) setStatus('没有识别到内容。');
+    });
+  };
+  const end = () => { if (!holding) return; holding = false; Voice.stop(); };
+  const onDown = e => {
+    // 空格开始录音；Shift+空格仍然输入普通空格
+    // 中文输入法用空格选字：组字过程中不拦截
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.code !== 'Space' || e.shiftKey || e.repeat) { if (e.code === 'Space' && e.repeat && holding) e.preventDefault(); return; }
+    if (document.activeElement && document.activeElement.tagName === 'BUTTON') return;
+    e.preventDefault(); begin();
+  };
+  const onUp = e => { if (e.code === 'Space' && holding) { e.preventDefault(); end(); } };
+  document.addEventListener('keydown', onDown, true);
+  document.addEventListener('keyup', onUp, true);
+  mic.addEventListener('pointerdown', e => { e.preventDefault(); begin(); });
+  mic.addEventListener('pointerup', end);
+  mic.addEventListener('pointerleave', end);
+  if (!Voice.supported()) setStatus('提示：此浏览器不支持语音识别，可以直接打字。');
+  // 对话关闭时卸载
+  return () => { Voice.cancel(); document.removeEventListener('keydown', onDown, true); document.removeEventListener('keyup', onUp, true); };
+}
+let detachVoice = null;
+
 // ---------- 设备对话：统一输入框 ----------
 function ctxSummary() {
   return `第${S.day}天，${clockText()}。已发现：${S.clues.slice(-6).join('；') || '无'}。独立记录 ${evidenceCount()} 份。`;
@@ -5112,7 +5271,8 @@ async function openChat(id) {
   const html = `<h2>${esc(a.name)}<span class="hint" style="margin-left:10px">${esc(a.duty)} · ${NPC.canUseAI() ? '实时对话' : '规则对话'}</span></h2>
     <p class="hint">感知：${esc(a.sense)}</p>
     <div class="chatlog" id="log" aria-live="polite"></div>
-    <div class="row"><input id="msg" placeholder="问、说服、指挥，或做个实验……回车发送" aria-label="对设备说话" autocomplete="off"/><button class="primary" id="send" style="margin-top:0">发送</button></div>
+    <div class="row"><input id="msg" placeholder="按住空格说话，或打字后回车" aria-label="对设备说话" autocomplete="off"/><button class="mic" id="mic" type="button" aria-label="按住说话" title="按住说话"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="primary" id="send" style="margin-top:0">发送</button></div>
+    <p class="hint" id="vstatus" aria-live="polite"></p>
     <button class="primary" id="bye">结束对话</button>`;
   openModal(html, async sh => {
     const log = sh.querySelector('#log');
@@ -5132,6 +5292,7 @@ async function openChat(id) {
     const send = () => { const i = sh.querySelector('#msg'); const v = i.value.trim(); if (!v) return; i.value = ''; speak(v); };
     sh.querySelector('#send').onclick = send;
     sh.querySelector('#msg').onkeydown = e => { if (e.key === 'Enter') send(); };
+    detachVoice = attachVoice(sh, send);
     render();
     if (S.greeted[id] !== S.day) { S.greeted[id] = S.day; await speak(null); }
   });
@@ -5436,7 +5597,7 @@ function intro() {
   openModal(`<div class="titlemark">入住</div><h1>住进来的第三天</h1>
     <p>城市的住房、交通、工作、医疗和通信，都由互联的 AI 安排。你拿到了一间智能公寓的三天适应期。</p>
     <p>前一位住户叫周岚。系统说，他「退租后意外滞留」。</p>
-    <p class="hint">点击地面移动，点击物件或家电调查与对话。滚轮缩放，N 打开手机。<br>每台家电只有一个输入框：问、说服、指挥、做实验都可以${NPC.canUseAI() ? '（实时 AI 对白已开启）' : '（当前为规则对白，同样可以通关）'}。</p>
+    <p class="hint">WASD / 方向键移动（按屏幕方向），也可以点击地面。E 和身边的物件或家电互动。滚轮缩放，N 打开手机。<br>对话时<b>按住空格说话，松开发送</b>；Shift+空格输入普通空格。每台家电只有一个输入框：问、说服、指挥、做实验都可以${NPC.canUseAI() ? '（实时 AI 对白已开启）' : '（当前为规则对白，同样可以通关）'}。</p>
     <div class="choices"><button id="sign">入住</button>${loadSave.found ? '<button id="cont">继续上次的进度</button>' : ''}</div>`, sh => {
     sh.querySelector('#sign').onclick = async () => {
       wipe(); closeModal();

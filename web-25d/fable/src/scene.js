@@ -759,6 +759,76 @@ const World = (() => {
     walk = { queue, tgt: queue.shift(), cb };
     marker.position.set(tgt.x, floorY(tgt.x, tgt.z) + 0.03, tgt.z); marker.visible = true;
   }
+  // ---------- 键盘移动：WASD / 方向键，按屏幕方向走 ----------
+  const keys = new Set();
+  const KEYMAP = { KeyW: 'u', ArrowUp: 'u', KeyS: 'd', ArrowDown: 'd', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
+  function typing() { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); }
+  window.addEventListener('keydown', e => {
+    const k = KEYMAP[e.code];
+    if (!k || locked || typing()) return;
+    e.preventDefault();
+    keys.add(k);
+    if (walk) { walk = null; marker.visible = false; }
+  });
+  window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
+  window.addEventListener('blur', () => keys.clear());
+  // 能否站在 (x, z)：在未锁房间内部，或在连通两个房间的门洞走廊里
+  function walkable(x, z) {
+    const M = 0.28;
+    for (const [k, r] of Object.entries(ROOMS)) {
+      if (lockedRooms.has(k)) continue;
+      if (x > r.x0 + M && x < r.x1 - M && z > r.z0 + M && z < r.z1 - M) return true;
+    }
+    for (const [a, b, pts] of DOORS) {
+      if (lockedRooms.has(a) || lockedRooms.has(b)) continue;
+      const [p, q] = [pts[0], pts[pts.length - 1]];
+      const minx = Math.min(p[0], q[0]) - 0.45, maxx = Math.max(p[0], q[0]) + 0.45;
+      const minz = Math.min(p[1], q[1]) - 0.45, maxz = Math.max(p[1], q[1]) + 0.45;
+      if (x >= minx && x <= maxx && z >= minz && z <= maxz) return true;
+    }
+    return false;
+  }
+  function keyMove(dt) {
+    if (!keys.size || locked) return false;
+    // 屏幕「上」= 离开相机的地面方向
+    const yaw = cam3.yaw;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    let mx = 0, mz = 0;
+    if (keys.has('u')) { mx += fx; mz += fz; }
+    if (keys.has('d')) { mx -= fx; mz -= fz; }
+    if (keys.has('r')) { mx += rx; mz += rz; }
+    if (keys.has('l')) { mx -= rx; mz -= rz; }
+    const len = Math.hypot(mx, mz);
+    if (len < 1e-3) return false;
+    mx /= len; mz /= len;
+    const step = 3.6 * dt, p = player.position;
+    // 分轴尝试，贴墙时可以顺着墙滑动
+    if (walkable(p.x + mx * step, p.z + mz * step)) { p.x += mx * step; p.z += mz * step; }
+    else if (walkable(p.x + mx * step, p.z)) p.x += mx * step;
+    else if (walkable(p.x, p.z + mz * step)) p.z += mz * step;
+    const desired = Math.atan2(mx, mz);
+    let dy = desired - player.rotation.y;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    player.rotation.y += dy * Math.min(1, 12 * dt);
+    return true;
+  }
+  // 最近的可交互物（给 E 键用）
+  function nearestInteract(maxDist) {
+    let best = null, bd = maxDist;
+    Object.values(interact).forEach(it => {
+      if (!it.visible || it.room !== activeRoom || it.obj.userData.deco) return;
+      const d = Math.hypot(it.stand.x - player.position.x, it.stand.z - player.position.z);
+      if (d < bd) { bd = d; best = it.id; }
+    });
+    return best;
+  }
+  window.addEventListener('keydown', e => {
+    if (e.code !== 'KeyE' || locked || typing()) return;
+    const id = nearestInteract(1.8);
+    if (id && onInteract) onInteract(id);
+  });
+
   function roomAt(x, z) {
     for (const [k, r] of Object.entries(ROOMS)) if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return k;
     return null;
@@ -862,7 +932,9 @@ const World = (() => {
     const dt = Math.min(0.05, raw);
     const t = clock.elapsedTime;
     const vis = player.userData.visual || body;
-    if (walk) {
+    if (keyMove(dt)) {
+      vis.position.y = Math.abs(Math.sin(t * 11)) * 0.06;
+    } else if (walk) {
       const p = player.position;
       const d = new THREE.Vector3(walk.tgt.x - p.x, 0, walk.tgt.z - p.z);
       const len = d.length();
