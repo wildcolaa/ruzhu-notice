@@ -25,7 +25,7 @@ const Models = (() => {
     shoes: { size: [0.6, 0.9, 1.8], rotY: 0 },
     npc_qing: { size: [0.55, 0.55, 0.55], rotY: 0, float: true, alias: 'home' },
     // 网格脸朝 +X；走路逻辑假定角色朝 +Z，所以先转 -90°。不要再按长轴自动转。
-    player: { size: [0.55, 1.55, 0.55], rotY: -Math.PI / 2, autoAlign: false },
+    player: { size: [0.72, 1.45, 0.72], rotY: -Math.PI / 2, autoAlign: false },   // 大头 Q 版：放宽宽度，避免被缩得太小
     deco_board: { size: [2.4, 1.6, 0.08], rotY: 0, lift: 1.4 },
     deco_lamp: { size: [0.4, 0.55, 0.4], rotY: 0 },
     deco_plant: { size: [0.7, 1.3, 0.7], rotY: 0 },

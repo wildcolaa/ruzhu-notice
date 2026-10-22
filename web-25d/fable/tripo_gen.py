@@ -38,9 +38,12 @@ NEG = "text, letters, watermark, multiple objects, floor, ground, base, platform
 
 ASSETS = {
     # ---- 角色 ----
-    "player": "a chibi detective uncle character, big round head, round gold wire glasses, thick black beard and "
-              "curly black hair, olive green knit sweater over a collared shirt, brown trousers, small hands, "
-              "standing relaxed pose facing forward, full body",
+    # 2026-10-22 换成短发戴毛线帽的 Q 版女生（参考图 models_src/player_ref.png，原图是长发，这里要求短发）
+    "player": "a chibi cartoon girl character, very big head and small body, short straight black bob haircut with blunt bangs "
+              "ending at the chin, no long hair, a chunky brown ribbed knit beanie hat, big sleepy half-lidded eyes, "
+              "small silver hoop earring, white collared shirt with rolled-up sleeves under a brown cable-knit sweater vest, "
+              "olive green cargo shorts with side pockets, slouchy tan leg warmers, chunky mustard yellow sneakers, "
+              "standing relaxed facing forward, arms slightly away from the body, full body",
     "npc_qing": "a cute floating smart home AI orb, warm amber glass sphere with a glowing brass halo ring around it, friendly",
     "npc_echo": "an old dusty 1970s mainframe control cabinet with a single big red glowing camera eye, dented teal metal, cables",
     # ---- 剧情物件（重做） ----
