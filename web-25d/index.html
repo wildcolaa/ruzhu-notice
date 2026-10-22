@@ -303,7 +303,8 @@ button, input { font-family: inherit; }
 
 /* ---- 左下：头像 + 进度，合成一块小屏 ---- */
 .hero { left: 16px; bottom: 16px; padding: 10px 12px 10px 10px; display: flex; align-items: center; gap: 12px; }
-.badge { border: 0; box-shadow: 0 0 0 1px var(--ph-faint), 0 0 12px rgba(80,255,210,.18); filter: grayscale(.35) sepia(.25) hue-rotate(110deg) saturate(1.3) brightness(.95); }
+/* 头像保持原色，只加一圈荧光细边 */
+.badge { border: 0; background: #1a1612; box-shadow: 0 0 0 1px rgba(143,245,210,.35), 0 0 12px rgba(80,255,210,.18); filter: none; }
 .progress .bar { background: rgba(143,245,210,.08); border: 1px solid var(--ph-faint); height: 8px; border-radius: 1px; }
 .progress .fill { background: repeating-linear-gradient(90deg, var(--ph) 0 6px, transparent 6px 8px); box-shadow: 0 0 8px rgba(80,255,210,.5); }
 .progress .label { font: 11px/1 var(--mono); letter-spacing: .1em; color: var(--ph); text-shadow: var(--ph-glow); margin-top: 6px; }
