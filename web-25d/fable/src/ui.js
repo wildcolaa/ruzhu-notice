@@ -68,13 +68,59 @@ function say(title, body, choices) {
 function sayNow(title, body, choices) {
   choices = choices || [{ l: '继续' }];
   const html = `${title ? `<h2>${esc(title)}</h2>` : ''}${body.split('\n').map(p => `<p>${p}</p>`).join('')}
-    <div class="choices">${choices.map((c, i) => `<button data-i="${i}" ${c.disabled ? 'disabled style="opacity:.45;cursor:not-allowed"' : ''}>${esc(c.l)}</button>`).join('')}</div>`;
+    <div class="choices">${choices.map((c, i) => `<button data-i="${i}" ${c.disabled ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''}>${esc(c.l)}</button>`).join('')}</div>`;
   return new Promise(res => openModal(html, sh => {
+    const skip = typeOut(sh.querySelectorAll(':scope > p'));
     sh.querySelectorAll('.choices button').forEach(b => b.onclick = () => {
+      // 第一次点击先把字打完，避免玩家没看完就被跳过
+      if (skip()) return;
       const c = choices[+b.dataset.i]; if (c.disabled) return;
       closeModal(); c.fn && c.fn(); res(+b.dataset.i);
     });
   }));
+}
+
+// 终端打字机：逐字显示段落（保留 <b>、<span class="hint"> 等标签）。
+// 返回 skip()：还在打字时立即显示全部并返回 true，已打完返回 false。
+function typeOut(paras) {
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const els = Array.from(paras);
+  if (reduce || !els.length) return () => false;
+  // 把每段里的文字节点拆出来，先清空，再按顺序补字
+  const nodes = [];
+  els.forEach(p => {
+    const w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) { nodes.push({ n, full: n.nodeValue, p }); }
+  });
+  nodes.forEach(o => { o.n.nodeValue = ''; });
+  els.forEach(p => { p.style.minHeight = '1.85em'; });
+  let i = 0, k = 0, done = false, timer = null;
+  const CPS = 70;   // 每秒字数
+  const finish = () => {
+    if (done) return;
+    done = true; clearInterval(timer);
+    nodes.forEach(o => { o.n.nodeValue = o.full; });
+    els.forEach(p => p.classList.remove('typing'));
+    document.removeEventListener('keydown', onKey, true);
+  };
+  const tick = () => {
+    let budget = Math.max(1, Math.round(CPS / 30));
+    while (budget-- > 0 && i < nodes.length) {
+      const o = nodes[i];
+      els.forEach(p => p.classList.toggle('typing', p === o.p));
+      k++; o.n.nodeValue = o.full.slice(0, k);
+      if (k >= o.full.length) { i++; k = 0; }
+    }
+    if (i >= nodes.length) finish();
+  };
+  // 打字中按空格 / 回车 / Esc：先打完，不触发按钮
+  const onKey = e => {
+    if (done || !['Enter', ' ', 'Escape'].includes(e.key)) return;
+    e.preventDefault(); e.stopPropagation(); finish();
+  };
+  document.addEventListener('keydown', onKey, true);
+  timer = setInterval(tick, 33);
+  return () => { if (done) return false; finish(); return true; };
 }
 
 // ---------- HUD ----------
@@ -128,9 +174,9 @@ function showNotice() {
 function openPhone() {
   const ev = Object.entries(EVIDENCE).filter(([k]) => has(k)).map(([, e]) => `<li>${esc(e.text)}</li>`).join('') || '<li>还没有导出任何原始记录。</li>';
   const log = NPC.LOG.slice(-12).reverse().map(l => `<li>${esc(l)}</li>`).join('') || '<li>暂无住宅动态。</li>';
-  const raw = has('raw_timeline') ? `<h3>原始时间线</h3><pre style="font-size:13px;background:#1c1814;color:#efe4c8;padding:10px">${RAW_TIMELINE.map(esc).join('\n')}</pre>` : '';
+  const raw = has('raw_timeline') ? `<h3>原始时间线</h3><pre class="rawlog">${RAW_TIMELINE.map(esc).join('\n')}</pre>` : '';
   openModal(`<h2>住家 · 智能家居</h2>
-    <p class="hint">住户状态：${S.day === 3 ? '<b style="color:#9c3b32">资格已终止</b>' : '已确认'}${S.day === 3 ? ` · 备用电力 ${S.power}` : ''}</p>
+    <p class="hint">住户状态：${S.day === 3 ? '<b class="warn">资格已终止</b>' : '已确认'}${S.day === 3 ? ` · 备用电力 ${S.power}` : ''}</p>
     <h3>已导出的原始记录</h3><ul>${ev}</ul>${raw}
     <h3>住宅动态</h3><ul>${log}</ul>
     <div class="choices"><button id="xb">打开「小饱」聊天</button><button id="x">收起手机</button></div>`, sh => {
@@ -270,7 +316,7 @@ function openAISettings(after) {
     <label class="hint" for="aikey">${relay ? '个人 Groq API Key（可选）' : 'Groq API Key'}${masked ? `（已保存：${esc(masked)}）` : ''}</label>
     <div class="row" style="margin-top:4px"><input id="aikey" type="password" placeholder="${masked ? '留空则保留已保存的 Key' : 'gsk_...'}" autocomplete="off" spellcheck="false"/></div>
     <label class="hint" for="aimodel" style="display:block;margin-top:12px">模型</label>
-    <div class="row" style="margin-top:4px"><select id="aimodel" style="flex:1;padding:10px;background:#f7f0e0;border:1px solid rgba(42,33,24,.18);font-size:14px">${models}</select></div>
+    <div class="row" style="margin-top:4px"><select id="aimodel" style="flex:1">${models}</select></div>
     <p class="hint" id="aistatus" aria-live="polite">${off ? '当前已关闭 AI，使用规则对白。' : ''}</p>
     <p class="hint">${relay ? '内置线路经过游戏的中转服务转发给 Groq，网页里不包含任何 Key。' : ''}个人 Key 只保存在这台电脑的浏览器里（localStorage），对话时直接发给 Groq，不会写进游戏文件；在公用电脑上玩完记得清除。家电说什么由 AI 生成，但开门、导出记录、结局等结果仍由游戏规则决定。</p>
     <div class="choices">

@@ -98,7 +98,7 @@ function resolveEnding() {
   NPC.logEvent(`结局：${e.title}`);
   const facts = `生还：${w.survived ? '是' : '否'} · 原始记录保全：${w.evidence_kept ? '是' : '否'} · 送达：${w.delivered === 'offline' ? '离线旧线路' : (has('city_help') ? '城市系统' : '未送出')} · 接受交易：${w.accepted_deal ? '是' : '否'}`;
   const replay = NPC.LOG.slice(-10).map(l => `<li>${esc(l)}</li>`).join('');
-  openModal(`<div class="ending"><div class="titlemark">${esc(e.title.slice(0, 2))}</div><h1>${esc(e.title)}</h1>
+  openModal(`<div class="ending"><div class="titlemark">住户档案 · 已归档</div><h1>${esc(e.title)}</h1>
     <p>${esc(e.shot)}</p><p class="hint">${esc(facts)}</p>
     <h3>事件回放</h3><ul class="hint">${replay}</ul>
     <button class="primary" id="again">从入住前重新开始</button></div>`, sh => {
