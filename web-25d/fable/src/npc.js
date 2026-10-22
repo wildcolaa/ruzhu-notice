@@ -147,7 +147,7 @@ const NPC = (() => {
   const AI_STORE = 'ruzhu_ai';
   // 内置 AI 线路：Cloudflare Worker 中转（web-25d/relay/worker.js），Groq Key 只存在 Worker 后台。
   // 部署后把地址填在这里；页面上加 ?relay=<地址> 也可以临时指定（方便测试）。
-  const RELAY_URL = '';
+  const RELAY_URL = 'https://ruzhu-ai.yaoyz25.workers.dev/';
   const AI_MODELS = [
     ['qwen/qwen3.8-27b', 'Qwen 3.8 27B（推荐，中文好、快）'],
     ['openai/gpt-oss-120b', 'GPT-OSS 120B（更稳，稍慢）'],
