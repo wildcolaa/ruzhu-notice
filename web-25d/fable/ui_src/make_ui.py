@@ -48,60 +48,90 @@ fixed = np.where(m3, np.clip(fixed.astype(np.float32) + noise, 0, 255), fixed).a
 blk = fixed[480:503, 455:520].reshape(-1, 3)
 fixed[481:503, 457:518] = np.median(blk[blk.sum(1) < 40], axis=0) if (blk.sum(1) < 40).any() else 0
 
-# ---- 2. 裁掉底部抽屉，四周补一圈机身边框 ----
-CUT = 985
-P = 26
-img = fixed[:CUT]
-Hc = img.shape[0]
-canvas = np.zeros((Hc + P, W + 2 * P, 3), np.float32)
-canvas[P:, P:P + W] = img
-panel_top = 512
-# 面板区：沿用左右最外侧 6 列的颜色（取均值，不会拉出条纹）
-left = img[:, :6].astype(np.float32).mean(axis=1)
-right = img[:, -6:].astype(np.float32).mean(axis=1)
-ref = img[panel_top + 30:panel_top + 80, :].reshape(-1, 3).astype(np.float32).mean(axis=0)
-for y in range(Hc):
-    if y >= panel_top + 4:
-        canvas[P + y, :P] = left[y]; canvas[P + y, P + W:] = right[y]
+# ---- 2. 拼横版机身：上方宽屏，下方控制条；旋钮凸台仍然压进屏幕下沿 ----
+P = 26                      # 外框
+Wn, Hn = 1200, 750          # 内部尺寸
+PT = 470                    # 屏幕下沿（控制条顶）
+OFF = 512 - PT              # 原图里屏幕下沿在 y=512
+KX, KY = 760, 556           # 新旋钮圆心（内部坐标）
+src = fixed.astype(np.float32)
+# 原图左侧 10..90 列的逐行颜色：屏幕黑 → 下沿高光 → 面板
+prof = src[:, 10:90].mean(axis=1)
+ref = src[560:620, 10:90].reshape(-1, 3).mean(axis=0)
+CH, CW = Hn + 2 * P, Wn + 2 * P
+canvas = np.zeros((CH, CW, 3), np.float32)
+for y in range(CH):
+    yi = y - P
+    if yi >= PT - 18:
+        canvas[y] = prof[min(src.shape[0] - 1, max(0, yi + OFF))]
     else:
-        t = y / panel_top
-        c = ref * (1.06 - 0.06 * t)          # 顶部略亮，像光从上方打下来
-        canvas[P + y, :P] = c; canvas[P + y, P + W:] = c
-for y in range(P):
-    canvas[y] = ref * 1.07
-# 屏幕开口的内倒角：上沿和两侧一道暗边、一道细高光
-x0, x1, y0 = P, P + W, P
-canvas[y0 - 2:y0, x0 - 2:x1 + 2] *= 0.55
-canvas[y0 - 4:y0 - 2, x0 - 4:x1 + 4] *= 1.12
-canvas[y0 - 2:P + panel_top + 2, x0 - 2:x0] *= 0.55
-canvas[y0 - 2:P + panel_top + 2, x1:x1 + 2] *= 0.55
-canvas[y0 - 4:P + panel_top + 2, x0 - 4:x0 - 2] *= 1.1
-canvas[y0 - 4:P + panel_top + 2, x1 + 2:x1 + 4] *= 1.1
-# 面板接缝处平滑过渡
-canvas[P + panel_top - 2:P + panel_top + 6, :P] = cv2.GaussianBlur(canvas[P + panel_top - 6:P + panel_top + 10, :P], (1, 9), 0)[4:12]
-canvas[P + panel_top - 2:P + panel_top + 6, P + W:] = cv2.GaussianBlur(canvas[P + panel_top - 6:P + panel_top + 10, P + W:], (1, 9), 0)[4:12]
-# 边框颗粒
-border = np.ones(canvas.shape[:2], bool); border[P:, P:P + W] = False
-canvas[border] += rng.normal(0, grain, (border.sum(), 1))
+        canvas[y] = ref * (1.07 - 0.03 * (y / CH))
+# 外框只在屏幕外围：屏幕区域内先填黑，下沿用原图的高光轮廓
+canvas[P:P + PT - 18, P:P + Wn] = 0
+for y in range(P + PT - 18, P + PT + 22):
+    pass   # 已由 prof 覆盖（含黑→高光→面板）
+# 外框在屏幕下沿以下就是面板本身：左右两侧 x<P、x>P+Wn 的下沿段改成面板色
+for y in range(P + PT - 18, P + PT + 6):
+    canvas[y, :P] = ref * 1.04; canvas[y, P + Wn:] = ref * 1.04
+# 轻微的左上光照
+gx = np.linspace(1.03, 0.97, CW)[None, :, None]; gy = np.linspace(1.02, 0.98, CH)[:, None, None]
+lit = canvas * gx * gy
+hole_rect = np.zeros((CH, CW), bool); hole_rect[P:P + PT - 18, P:P + Wn] = True
+canvas = np.where(hole_rect[..., None], canvas, lit)
+# 屏幕开口三边的倒角
+x0, x1, y0, y1 = P, P + Wn, P, P + PT - 6
+canvas[y0 - 2:y0, x0 - 2:x1 + 2] *= 0.55; canvas[y0 - 4:y0 - 2, x0 - 4:x1 + 4] *= 1.12
+canvas[y0 - 2:y1, x0 - 2:x0] *= 0.55; canvas[y0 - 2:y1, x1:x1 + 2] *= 0.55
+canvas[y0 - 4:y1, x0 - 4:x0 - 2] *= 1.1; canvas[y0 - 4:y1, x1 + 2:x1 + 4] *= 1.1
+
+def paste(x0s, y0s, x1s, y1s, cx, cy, feather=18, match=True):
+    """把原图 (x0s..x1s, y0s..y1s) 贴到新图，(cx,cy) 为该块左上角在内部坐标中的位置"""
+    patch = src[y0s:y1s, x0s:x1s].copy()
+    h, w = patch.shape[:2]
+    X, Y = P + cx, P + cy
+    dst = canvas[Y:Y + h, X:X + w]
+    if match:   # 用边缘一圈的颜色差做校正，消除明暗接缝
+        ring = np.ones((h, w), bool); ring[4:-4, 4:-4] = False
+        pr = patch[ring].mean(axis=0); dr = dst[ring].mean(axis=0)
+        bright = patch.mean(axis=2) > 25
+        patch[bright] += (dr - pr)
+    m = np.ones((h, w), np.float32)
+    ramp = lambda n: np.clip(np.arange(n) / feather, 0, 1)
+    m *= np.minimum(ramp(w), ramp(w)[::-1])[None, :]
+    m *= np.minimum(ramp(h), ramp(h)[::-1])[:, None]
+    canvas[Y:Y + h, X:X + w] = dst * (1 - m[..., None]) + patch * m[..., None]
+
+# 旋钮（原图圆心 269,598）连同凸台和刻度点；上方黑色部分与屏幕黑相接
+kx0, ky0, kx1, ky1 = 96, 430, 444, 792
+canvas_before = canvas.copy()
+paste(kx0, ky0, kx1, ky1, KX - (269 - kx0), KY - (598 - ky0), feather=22, match=False)
+# 凸台以上仍然是屏幕：不羽化，直接用原图的黑
+top = slice(P + KY - (598 - ky0), P + PT - 18)
+# 圆键（原图 493,673）、方键对、散热孔
+paste(463, 643, 523, 703, 1112 - 30, 548 - 30, feather=10)
+paste(360, 872, 524, 930, 1010 - 8, 642 - 6, feather=10)
+paste(16, 878, 140, 922, 40, 664, feather=10)
+# 面板颗粒
+rng2 = np.random.default_rng(11)
+panel = ~hole_rect
+canvas[panel] += rng2.normal(0, grain * 0.9, (panel.sum(), 1))
 canvas = np.clip(canvas, 0, 255).astype(np.uint8)
-# 屏幕开口抠成透明：从屏幕中心向外泛洪暗像素，网页里的 CRT 层放在机身下面，旋钮凸台自然压住屏幕
+# 屏幕抠透明：从屏幕中心泛洪暗像素
 lumc = canvas.mean(axis=2)
 dark = (lumc < 22).astype(np.uint8)
-ff = np.zeros((dark.shape[0] + 2, dark.shape[1] + 2), np.uint8)
-cv2.floodFill(dark, ff, (P + 270, P + 200), 2)
+ff = np.zeros((CH + 2, CW + 2), np.uint8)
+cv2.floodFill(dark, ff, (P + 300, P + 200), 2)
 hole = (dark == 2).astype(np.float32)
 alpha = 1.0 - cv2.GaussianBlur(hole, (0, 0), 0.8)
-alpha = np.where(hole > 0, np.minimum(alpha, 1 - hole), alpha)
+alpha = np.where(hole > 0, 0, alpha)
 rgba = np.dstack([cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB), (np.clip(alpha, 0, 1) * 255).astype(np.uint8)])
 dev_rgb = Image.fromarray(rgba, 'RGBA')
 ys, xs = np.where(hole > 0)
 print('hole bbox', xs.min(), ys.min(), xs.max(), ys.max())
-# 凹口：每列透明区的最低点
-for x in range(150, 460, 20): print('col', x, 'hole bottom', int(ys[xs == x].max()) if (xs == x).any() else None)
+for x in range(P + KX - 160, P + KX + 170, 20): print('col', x, 'hole bottom', int(ys[xs == x].max()))
 dev_rgb.save(out + '/device.webp', quality=90, method=6)
-dev_rgb.save(prev + '/device_preview.png')
 Image.alpha_composite(Image.new('RGBA', dev_rgb.size, (255, 0, 255, 255)), dev_rgb).convert('RGB').save(prev + '/device_alpha_check.png')
-print('device', dev_rgb.size)
+print('device', dev_rgb.size, 'knob center', P + KX, P + KY)
 
 # ---- 3. 线稿 → 荧光屏画面 ----
 art = np.asarray(Image.open(up + '/house_src.jpg').convert('RGB')).astype(np.float32)
@@ -122,4 +152,4 @@ scr = scr.resize((1170, round(1170 * scr.height / scr.width)), Image.LANCZOS)
 scr.save(out + '/screen.webp', quality=82, method=6)
 scr.save(prev + '/screen_preview.png')
 print('screen', scr.size)
-print('P', P, 'W', W + 2 * P, 'H', Hc + P)
+

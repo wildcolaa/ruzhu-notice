@@ -146,6 +146,7 @@ const Boot = (() => {
     $('bootLed').classList.toggle('on', NPC.canUseAI());
     $('bootLed').title = NPC.canUseAI() ? NPC.aiLabel() + ' · 点击设置' : '规则对话 · 点击设置 AI';
     $('bootOut').disabled = !loadSave.found;
+    $('bootStat').textContent = loadSave.found ? `档案 · 第 ${'一二三'[S.day - 1] || S.day} 天 · ${clockText()}` : '待入住 · 17:40';
     if (jitter) { box.classList.remove('switch'); void box.offsetWidth; box.classList.add('switch'); beepSoft(); }
   }
   function beepSoft() {
@@ -166,7 +167,7 @@ const Boot = (() => {
     setTimeout(() => { hide(); then(); }, reduce ? 0 : 720);
   }
   function hide() {
-    el.hidden = true; el.classList.remove('off', 'on');
+    el.hidden = true; el.classList.remove('off', 'on'); $('app').classList.remove('booting');
     if (onKey) { window.removeEventListener('keydown', onKey, true); onKey = null; }
     World.lock(false);
   }
@@ -194,7 +195,7 @@ const Boot = (() => {
       if (UI_IMG.screen) $('bootArt').style.backgroundImage = `url(${UI_IMG.screen})`;
     }
     $('bootNoise').style.backgroundImage = `url(${noiseTex()})`;
-    el.hidden = false; World.lock(true);
+    el.hidden = false; World.lock(true); $('app').classList.add('booting');
     el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
     page = 0; disarm(); render(false);
     if (!onKey) {
