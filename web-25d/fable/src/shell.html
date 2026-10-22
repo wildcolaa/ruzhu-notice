@@ -157,7 +157,7 @@ button, input { font-family: inherit; }
 #toast.show { opacity: 1; }
 
 .modal {
-  position: absolute; inset: 0;
+  position: absolute; inset: 0; z-index: 30;
   background: radial-gradient(ellipse at center, rgba(7,11,22,.3), rgba(7,11,22,.82));
   display: none; place-items: center; padding: 24px;
 }
@@ -213,6 +213,189 @@ button, input { font-family: inherit; }
   .clues, .obj, .rulecard { display: none; }
   .dock { left: 120px; max-width: 60vw; }
 }
+
+/* ---------- 开场：住家终端 ---------- */
+#boot {
+  position: absolute; inset: 0; z-index: 20;
+  display: grid; place-items: center;
+  background: radial-gradient(ellipse at 50% 40%, #12161c 0%, #07090c 70%);
+  overflow: hidden;
+}
+#boot[hidden] { display: none !important; }
+.term {
+  --w: min(440px, 90vw, calc(94vh * 592 / 1011));
+  position: relative; width: var(--w); aspect-ratio: 592 / 1011;
+  filter: drop-shadow(0 28px 50px rgba(0,0,0,.65));
+}
+.term-face {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 3; user-select: none;
+}
+.crt {
+  position: absolute; z-index: 1; overflow: hidden;
+  left: 4.39%; top: 2.57%; width: 91.22%; height: 50.35%;
+  border-radius: 1.4% / .8%;
+  background: #040808;
+  transform-origin: 50% 42%;
+}
+.crt-art {
+  position: absolute; inset: 0;
+  background: center 62% / 104% auto no-repeat;
+  opacity: .9; transition: opacity .35s, filter .35s;
+  /* 显像管的桶形弯曲 */
+  transform: perspective(600px) scale(1.02);
+}
+.crt[data-p="1"] .crt-art, .crt[data-p="2"] .crt-art { opacity: .18; filter: blur(1px); }
+.crt-dim {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(2,8,8,.92) 0%, rgba(2,8,8,.78) 34%, rgba(2,8,8,.15) 62%, transparent 80%);
+  transition: opacity .35s;
+}
+.crt[data-p="1"] .crt-dim, .crt[data-p="2"] .crt-dim { background: rgba(2,8,8,.55); }
+.crt-roll {
+  position: absolute; left: 0; right: 0; height: 22%; top: -22%; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(140,255,220,.06) 50%, transparent);
+  animation: crtRoll 7s linear infinite;
+}
+@keyframes crtRoll { to { top: 100%; } }
+.crt-noise {
+  position: absolute; inset: -50%; pointer-events: none; opacity: .07;
+  background-size: 160px 160px; animation: crtNoise .4s steps(3) infinite;
+}
+@keyframes crtNoise {
+  0% { transform: translate(0, 0); } 33% { transform: translate(-5%, 3%); } 66% { transform: translate(4%, -4%); } 100% { transform: translate(0, 0); }
+}
+.crt.switch .crt-text { animation: crtJitter .22s steps(2); }
+@keyframes crtJitter {
+  0% { transform: translateX(-2px) skewX(-2deg); filter: brightness(1.8); opacity: .4; }
+  50% { transform: translateX(2px); filter: brightness(1.3); }
+  100% { transform: none; filter: none; opacity: 1; }
+}
+#boot.on .crt { animation: crtOn .9s cubic-bezier(.2,.7,.2,1); }
+@keyframes crtOn {
+  0% { transform: scaleY(.012) scaleX(.04); filter: brightness(5); }
+  35% { transform: scaleY(.012) scaleX(1); filter: brightness(3); }
+  70% { transform: scaleY(1) scaleX(1); filter: brightness(1.5); }
+  100% { transform: none; filter: none; }
+}
+.crt-scan, .crt-vignette, .crt-glass, .crt-flicker, .crt-dim {
+  position: absolute; inset: 0; pointer-events: none;
+}
+.crt-scan {
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px);
+  opacity: .55;
+}
+.crt-vignette {
+  background: radial-gradient(ellipse at 50% 40%, transparent 28%, rgba(0,6,8,.55) 70%, rgba(0,0,0,.88) 100%);
+}
+.crt-glass {
+  background: linear-gradient(118deg, rgba(180,255,230,.09) 0 16%, transparent 38%, transparent 62%, rgba(0,20,24,.18) 100%);
+}
+.crt-flicker { background: #9fffe8; mix-blend-mode: overlay; opacity: 0; animation: crtFlick 4.6s infinite; }
+@keyframes crtFlick {
+  0%, 86%, 100% { opacity: 0; }
+  87% { opacity: .07; }
+  88.5% { opacity: 0; }
+  94% { opacity: .04; }
+}
+.crt-text {
+  position: relative; z-index: 2; height: 100%;
+  padding: 7% 8% 20%;
+  color: #b8ffe8;
+  font-family: "SF Mono", Menlo, "Cascadia Mono", "PingFang SC", "Noto Sans CJK SC", monospace;
+  text-shadow: 0 0 6px rgba(80,255,210,.55), 0 0 18px rgba(40,180,150,.35);
+  overflow: hidden;
+}
+.crt-text .brand { font-size: clamp(8px, 2.1vw, 11px); letter-spacing: .22em; opacity: .7; margin: 0 0 6%; }
+.crt-text h1 { font-family: var(--serif); font-size: clamp(16px, 4.4vw, 22px); font-weight: 600; margin: 0 0 6%; letter-spacing: .12em; color: #e7fff6; }
+.crt-text p { margin: 0 0 5%; font-size: clamp(10px, 2.6vw, 13px); line-height: 1.55; opacity: .92; }
+.crt-text .hint { font-size: clamp(9px, 2.2vw, 11px); color: #7fd9bd; opacity: 1; margin-top: 0; }
+.crt-text .tab { font-size: clamp(9px, 2.2vw, 11px); letter-spacing: .18em; opacity: .55; margin: 0 0 4%; }
+.crt-text kbd { border: 1px solid rgba(160,255,220,.35); padding: 0 4px; font-size: .9em; }
+.boot-hint {
+  position: absolute; bottom: 3.2%; left: 0; right: 0; text-align: center;
+  font-family: var(--serif); font-size: 11px; color: #8a9aa0; letter-spacing: .12em;
+  pointer-events: none; z-index: 4;
+}
+.knob {
+  position: absolute; z-index: 4; cursor: grab;
+  left: 27.5%; top: 48.8%; width: 44.6%; height: 26.2%;
+  border-radius: 50%; background: transparent; border: 0;
+}
+.knob:active { cursor: grabbing; }
+.knob:focus-visible { outline: 2px solid #7dffd4; outline-offset: 4px; }
+.knob-ptr {
+  position: absolute; left: 50%; top: 50%; width: 5.4%; height: 39%;
+  margin-left: -2.7%; transform-origin: 50% 0;
+  pointer-events: none;
+  transition: transform .32s cubic-bezier(.2,.9,.25,1.15);
+}
+.knob-ptr::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 46%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #c9d2d8, #ffffff 45%, #b8c2c8);
+  box-shadow: 0 0 6px rgba(255,255,255,.55), 0 1px 1px rgba(0,0,0,.4);
+}
+/* 角度对准旋钮左侧的刻度点 */
+.knob[data-p="0"] .knob-ptr { transform: rotate(107deg); }
+.knob[data-p="1"] .knob-ptr { transform: rotate(55deg); }
+.knob[data-p="2"] .knob-ptr { transform: rotate(25deg); }
+.k-lab {
+  position: absolute; z-index: 4; font-size: clamp(8px, 1.9vw, 10px);
+  letter-spacing: .16em; color: #c9d2d6; font-family: var(--serif);
+  text-shadow: 0 1px 2px #000; pointer-events: none; white-space: nowrap;
+}
+.k-lab[data-i="0"] { right: 75.4%; top: 56.8%; }
+.k-lab[data-i="1"] { right: 72.4%; top: 68.8%; }
+.k-lab[data-i="2"] { right: 63.4%; top: 74.6%; }
+.k-lab.on { color: #b8ffe8; text-shadow: 0 0 8px rgba(80,255,210,.5); }
+.led {
+  position: absolute; z-index: 4; left: 81.6%; top: 49.6%;
+  display: flex; align-items: center; gap: 5px;
+  border: 0; padding: 2px 4px; background: transparent; cursor: pointer;
+  font: 600 clamp(8px, 1.8vw, 10px)/1 "SF Mono", Menlo, monospace; letter-spacing: .14em; color: #5d6669;
+}
+.led i { width: 7px; height: 7px; border-radius: 50%; background: #2a3034; box-shadow: inset 0 0 2px #000; }
+.led.on { color: #a8f5dc; }
+.led.on i { background: #6fffd0; box-shadow: 0 0 6px #4dffc4, 0 0 14px #1a8a70; animation: ledPulse 2.4s ease-in-out infinite; }
+@keyframes ledPulse { 50% { box-shadow: 0 0 3px #4dffc4, 0 0 6px #1a8a70; } }
+.led:focus-visible { outline: 2px solid #7dffd4; outline-offset: 3px; }
+.round {
+  position: absolute; z-index: 4; left: 85.4%; top: 67.8%;
+  width: 4.75%; height: 2.78%; border-radius: 50%; border: 0;
+  background: transparent; cursor: pointer;
+}
+.r-lab { position: absolute; z-index: 4; left: 83.2%; top: 71.4%; width: 9.2%; text-align: center; font-size: clamp(7px, 1.6vw, 9px); letter-spacing: .14em; color: #9aa4a8; font-family: var(--serif); pointer-events: none; }
+.keys-lab { position: absolute; z-index: 4; left: 67.2%; top: 86.6%; width: 23.6%; display: flex; align-items: center; gap: 6px; font-size: clamp(7px, 1.6vw, 9px); letter-spacing: .2em; color: #9aa4a8; font-family: var(--serif); pointer-events: none; }
+.keys-lab::before, .keys-lab::after { content: ""; flex: 1; height: 1px; background: #7d868a; }
+.key.armed { color: #ffb9a8; text-shadow: 0 0 8px rgba(255,120,90,.6); }
+.key:active { transform: translateY(1px); }
+.round:hover { box-shadow: 0 0 10px rgba(124,255,212,.55); }
+.round:focus-visible { outline: 2px solid #7dffd4; outline-offset: 3px; }
+.key {
+  position: absolute; z-index: 4; border: 0; background: transparent;
+  color: #e8f4f0; font-family: var(--serif); font-size: clamp(9px, 2.2vw, 12px);
+  letter-spacing: .2em; cursor: pointer; text-shadow: 0 1px 2px #000;
+}
+.key:hover { color: #b8ffe8; }
+.key:focus-visible { outline: 2px solid #7dffd4; outline-offset: 2px; }
+.key[disabled] { color: #848c90; cursor: default; text-shadow: none; }
+.key-in { left: 67.2%; top: 89.9%; width: 10.5%; height: 3.6%; }
+.key-out { left: 80.1%; top: 89.9%; width: 10.6%; height: 3.6%; }
+.v-lab { position: absolute; z-index: 4; left: 8.8%; top: 93.6%; width: 17.2%; font-size: clamp(7px, 1.5vw, 8px); letter-spacing: .24em; color: #8d979b; font-family: "SF Mono", Menlo, monospace; pointer-events: none; white-space: nowrap; }
+#boot.off .crt { animation: crtOff .7s forwards; }
+#boot.off .crt-text, #boot.off .crt-art { animation: crtFade .25s forwards; }
+@keyframes crtOff {
+  0% { transform: scaleY(1) scaleX(1); filter: brightness(1); }
+  45% { transform: scaleY(0.018) scaleX(1); filter: brightness(3.2); }
+  72% { transform: scaleY(0.018) scaleX(0.02); filter: brightness(6); }
+  100% { transform: scaleY(0.018) scaleX(0.02); opacity: 0; filter: brightness(0); }
+}
+@keyframes crtFade { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .crt-flicker, .knob-ptr { animation: none; transition: none; }
+  #boot.off .crt { animation: none; opacity: 0; }
+}
 @media (prefers-reduced-motion: reduce) { #toast, .prompt, .progress .fill { transition: none; } }
 </style>
 </head>
@@ -220,6 +403,34 @@ button, input { font-family: inherit; }
 <div id="app">
   <div class="viewport">
     <canvas id="c"></canvas>
+      <div id="boot" hidden>
+        <div class="term" role="dialog" aria-label="住家入住终端">
+          <div class="crt" id="bootCrtBox" data-p="0">
+            <div class="crt-art" id="bootArt"></div>
+            <div class="crt-dim"></div>
+            <div class="crt-roll"></div>
+            <div class="crt-noise" id="bootNoise"></div>
+            <div class="crt-scan"></div>
+            <div class="crt-vignette"></div>
+            <div class="crt-glass"></div>
+            <div class="crt-flicker"></div>
+            <div class="crt-text" id="bootCrt"></div>
+          </div>
+          <img class="term-face" id="bootFace" alt="">
+          <button class="knob" id="bootKnob" type="button" data-p="0" aria-label="切换屏幕页面"><span class="knob-ptr"></span></button>
+          <span class="k-lab" data-i="0">简介</span>
+          <span class="k-lab" data-i="1">操作</span>
+          <span class="k-lab" data-i="2">档案</span>
+          <button class="led" id="bootLed" type="button" title="AI 设置"><i></i><span>AI</span></button>
+          <button class="round" id="bootAi" type="button" title="AI 设置" aria-label="AI 设置"></button>
+          <span class="r-lab">AI</span>
+          <span class="keys-lab">住 户</span>
+          <button class="key key-in" id="bootIn" type="button">入住</button>
+          <button class="key key-out" id="bootOut" type="button">继续</button>
+          <span class="v-lab">FABLE · 住家</span>
+        </div>
+        <div class="boot-hint">转动旋钮（或 ← →）切换页面 · 回车开始</div>
+      </div>
     <div class="hud">
       <div class="slate">
         <div class="clap"></div>

@@ -107,24 +107,137 @@ function resolveEnding() {
   closeModal.block = true;
 }
 
-// ---------- 开场 ----------
-function intro() {
-  openModal(`<div class="titlemark">入住</div><h1>住进来的第三天</h1>
-    <p>城市的住房、交通、工作、医疗和通信，都由互联的 AI 安排。你拿到了一间智能公寓的三天适应期。</p>
-    <p>前一位住户叫周岚。系统说，他「退租后意外滞留」。</p>
-    <p class="hint">WASD / 方向键移动（按屏幕方向），也可以点击地面。E 和身边的物件或家电互动。滚轮缩放，N 打开手机。<br>对话时<b>按住空格说话，松开发送</b>；Shift+空格输入普通空格。每台家电只有一个输入框：问、说服、指挥、做实验都可以${NPC.canUseAI() ? `（${esc(NPC.aiLabel())} 已开启）` : '（当前为规则对白，同样可以通关；填入免费的 Groq Key 可以和家电自由对话）'}。</p>
-    <div class="choices"><button id="sign">入住</button>${loadSave.found ? '<button id="cont">继续上次的进度</button>' : ''}<button id="ai">AI 设置${NPC.hasGroq() ? ' ✓' : '（可选）'}</button></div>`, sh => {
-    sh.querySelector('#ai').onclick = () => { closeModal(); openAISettings(intro); };
-    sh.querySelector('#sign').onclick = async () => {
-      wipe(); closeModal();
+// ---------- 开场：住家入住终端 ----------
+// 机身 UI_IMG.device（屏幕处透明）压在 CRT 层上面；CRT 里是 UI_IMG.screen 线稿 + 文字页。
+// 旋钮 / ← → 切换三页；左键入住，右键继续；LED 与圆键打开 AI 设置。
+const Boot = (() => {
+  const el = $('boot');
+  let page = 0, armed = false, onKey = null;
+  function noiseTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 160;
+    const g = c.getContext('2d'), d = g.createImageData(160, 160);
+    for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+    g.putImageData(d, 0, 0); return c.toDataURL();
+  }
+  function saveInfo() {
+    if (!loadSave.found) return '<p>没有找到入住档案。</p><p class="hint">按「入住」开始一段新的三天适应期。</p>';
+    const ev = evidenceCount();
+    const day = S.day === 3 ? '第三天 · 终夜' : `第 ${'一二三'[S.day - 1] || S.day} 天`;
+    return `<p>上次的档案：${esc(day)}</p><p>原始记录 ${ev} / 6 · 线索 ${S.clues.length} 条</p>
+      <p class="hint">按「继续」回到上次的位置。按两次「入住」会清除这份档案，重新开始。</p>`;
+  }
+  const PAGES = [
+    () => `<div class="brand">FABLE RESIDENCE · 住家 v3</div>
+      <h1>住进来的第三天</h1>
+      <p>城市的住房、交通、工作、医疗和通信，都由互联的 AI 安排。你拿到了一间智能公寓的三天适应期。</p>
+      <p>前一位住户叫周岚。系统说，他「退租后意外滞留」。</p>`,
+    () => `<div class="tab">操作说明</div>
+      <p><kbd>WASD</kbd> / 方向键移动，也可以点击地面。<kbd>E</kbd> 和身边的物件、家电互动。</p>
+      <p>滚轮缩放，<kbd>N</kbd> 打开手机。</p>
+      <p>对话时按住<kbd>空格</kbd>说话，松开发送；也可以直接打字。</p>
+      <p class="hint">${NPC.canUseAI() ? esc(NPC.aiLabel()) + ' 已开启，可以和家电自由对话。' : '当前为规则对白，同样可以通关。按右侧圆键填入免费的 Groq Key，就能和家电自由对话。'}</p>`,
+    () => `<div class="tab">入住档案</div>${saveInfo()}`,
+  ];
+  function render(jitter) {
+    const box = $('bootCrtBox');
+    box.dataset.p = page; $('bootKnob').dataset.p = page;
+    $('bootCrt').innerHTML = PAGES[page]();
+    el.querySelectorAll('.k-lab').forEach(l => l.classList.toggle('on', +l.dataset.i === page));
+    $('bootLed').classList.toggle('on', NPC.canUseAI());
+    $('bootLed').title = NPC.canUseAI() ? NPC.aiLabel() + ' · 点击设置' : '规则对话 · 点击设置 AI';
+    $('bootOut').disabled = !loadSave.found;
+    if (jitter) { box.classList.remove('switch'); void box.offsetWidth; box.classList.add('switch'); beepSoft(); }
+  }
+  function beepSoft() {
+    try {
+      const ac = beep.ac || (beep.ac = new (window.AudioContext || window.webkitAudioContext)());
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'square'; o.frequency.value = 1400;
+      g.gain.setValueAtTime(0.0001, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.025, ac.currentTime + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.05);
+      o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.06);
+    } catch (e) {}
+  }
+  function turn(d) { page = (page + d + PAGES.length) % PAGES.length; disarm(); render(true); }
+  function disarm() { armed = false; $('bootIn').classList.remove('armed'); $('bootIn').textContent = '入住'; }
+  // 显像管关机，然后进入游戏
+  function powerOff(then) {
+    el.classList.add('off');
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setTimeout(() => { hide(); then(); }, reduce ? 0 : 720);
+  }
+  function hide() {
+    el.hidden = true; el.classList.remove('off', 'on');
+    if (onKey) { window.removeEventListener('keydown', onKey, true); onKey = null; }
+    World.lock(false);
+  }
+  function startNew() {
+    if (loadSave.found && !armed) {
+      armed = true; $('bootIn').classList.add('armed'); $('bootIn').textContent = '确认？';
+      page = 2; render(true);
+      return;
+    }
+    powerOff(async () => {
+      wipe(); loadSave.found = false;
       S.day = 1; applyDay(); World.teleport(1.0, 2.6);
       World.setMood({ focus: 'entry', night: true, alarm: false });
       await say('第一天 17:40 · 玄关', '门在你背后合上。房里全黑。\n手机「住家」：「前三天是生活适应期。需要的时候，家会提醒你。」\n<span class="hint">去客厅，对小灯说「开灯」。墙上的实体开关被一层新装的透明盖封住了。</span>');
-    };
-    const c = sh.querySelector('#cont');
-    if (c) c.onclick = () => { closeModal(); applyDay(); if (S.day === 3 && !has('ended')) watchNight(); };
+    });
+  }
+  function resume() {
+    if (!loadSave.found) return;
+    powerOff(() => { applyDay(); if (S.day === 3 && !has('ended')) watchNight(); });
+  }
+  function openAI() { hide(); openAISettings(() => show()); }
+  function show() {
+    if (typeof UI_IMG !== 'undefined') {
+      if (UI_IMG.device) $('bootFace').src = UI_IMG.device;
+      if (UI_IMG.screen) $('bootArt').style.backgroundImage = `url(${UI_IMG.screen})`;
+    }
+    $('bootNoise').style.backgroundImage = `url(${noiseTex()})`;
+    el.hidden = false; World.lock(true);
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+    page = 0; disarm(); render(false);
+    if (!onKey) {
+      onKey = e => {
+        if (modalOpen) return;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); turn(1); }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); turn(-1); }
+        else if (e.key === 'Enter' && !(document.activeElement && document.activeElement.tagName === 'BUTTON' && el.contains(document.activeElement))) {
+          e.preventDefault(); loadSave.found ? resume() : startNew();
+        } else if (e.key === 'Escape') disarm();
+        if (KEY_BLOCK.has(e.code)) e.stopPropagation();
+      };
+      window.addEventListener('keydown', onKey, true);
+    }
+    setTimeout(() => (loadSave.found ? $('bootOut') : $('bootIn')).focus(), 50);
+  }
+  // 开场时不让 WASD / E / N 漏到游戏里
+  const KEY_BLOCK = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyN']);
+
+  // 旋钮：点击转一格，拖动按角度选页，滚轮也能转
+  const knob = $('bootKnob');
+  let drag = null;
+  knob.addEventListener('pointerdown', e => {
+    const r = knob.getBoundingClientRect();
+    drag = { cx: r.left + r.width / 2, cy: r.top + r.height / 2, moved: false, a0: Math.atan2(e.clientY - r.top - r.height / 2, e.clientX - r.left - r.width / 2) };
+    knob.setPointerCapture(e.pointerId);
   });
-}
+  knob.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const a = Math.atan2(e.clientY - drag.cy, e.clientX - drag.cx);
+    let d = a - drag.a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    if (Math.abs(d) > 0.45) { turn(d > 0 ? -1 : 1); drag.a0 = a; drag.moved = true; }
+  });
+  knob.addEventListener('pointerup', () => { if (drag && !drag.moved) turn(1); drag = null; });
+  knob.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); turn(1); } });
+  knob.addEventListener('wheel', e => { e.preventDefault(); turn(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+  $('bootIn').onclick = startNew;
+  $('bootOut').onclick = resume;
+  $('bootLed').onclick = openAI;
+  $('bootAi').onclick = openAI;
+  return { show, hide };
+})();
+function intro() { Boot.show(); }
 
 // ---------- 启动 ----------
 World.onHover(label => { const p = $('prompt'); if (label) { p.textContent = label; p.classList.add('show'); } else p.classList.remove('show'); });
