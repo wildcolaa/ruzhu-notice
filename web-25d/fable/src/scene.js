@@ -1057,14 +1057,36 @@ const World = (() => {
     renderer.setPixelRatio(1); resize();
   }
   if (LITE) degrade();
+  // ---------- 主角骨骼动画：走路 walk、停下 idle ----------
+  let mixer = null, act = {}, curAct = null;
+  function setPlayerAnim(model, clips) {
+    mixer = new THREE.AnimationMixer(model);
+    act = {};
+    clips.forEach(c => {
+      // 去掉根骨骼的位移轨道，避免走路动画自己把人往前推、和游戏里的移动叠加
+      c.tracks = c.tracks.filter(t => !(/\.position$/.test(t.name) && /hips|root|pelvis/i.test(t.name)));
+      act[c.name.toLowerCase()] = mixer.clipAction(c);
+    });
+    curAct = null; playAnim('idle', 0);
+  }
+  function playAnim(name, fade) {
+    const a = act[name] || null;
+    if (!a || a === curAct) return;
+    a.reset().setEffectiveWeight(1).play();
+    if (curAct) curAct.crossFadeTo(a, fade == null ? 0.2 : fade, false);
+    curAct = a;
+  }
   function loop() {
     const raw = clock.getDelta();
     if (!degraded) { slow = raw > 0.06 ? slow + raw : Math.max(0, slow - raw); if (slow > 2.5) degrade(); }
     const dt = Math.min(0.05, raw);
     const t = clock.elapsedTime;
     const vis = player.userData.visual || body;
+    const hop = mixer ? 0 : 1;          // 有骨骼动画时不再整体上下弹跳
+    let moving = false;
     if (keyMove(dt)) {
-      vis.position.y = Math.abs(Math.sin(t * 11)) * 0.06;
+      moving = true;
+      vis.position.y = hop * Math.abs(Math.sin(t * 11)) * 0.06;
     } else if (walk) {
       const p = player.position;
       const d = new THREE.Vector3(walk.tgt.x - p.x, 0, walk.tgt.z - p.z);
@@ -1079,9 +1101,15 @@ const World = (() => {
         player.rotation.y += dy * Math.min(1, 12 * dt);
         d.normalize().multiplyScalar(Math.min(len, 4.2 * dt));
         p.x += d.x; p.z += d.z;
-        vis.position.y = Math.abs(Math.sin(t * 11)) * 0.06;
+        moving = true;
+        vis.position.y = hop * Math.abs(Math.sin(t * 11)) * 0.06;
       }
     } else if (vis) vis.position.y += (0 - vis.position.y) * Math.min(1, 8 * dt);
+    if (mixer) {
+      playAnim(moving ? 'walk' : 'idle');
+      if (act.walk) act.walk.timeScale = 1.35;   // 步频配合移动速度，脚不打滑
+      mixer.update(dt);
+    }
     const fy = floorY(player.position.x, player.position.z);
     player.position.y += (fy - player.position.y) * Math.min(1, 8 * dt);
     // 穿过门洞：切换到新房间（先黑场，再显示）
@@ -1139,6 +1167,9 @@ const World = (() => {
     onBlocked(fn) { onBlocked = fn; },
     setLockedRooms(arr) { lockedRooms = new Set(arr); },
     isWalking: () => !!walk,
+    setPlayerAnim, playerAnim: () => (curAct ? curAct.getClip().name : null),
+    // 主角在屏幕上的像素位置（测试截图用）
+    playerScreen() { const v = player.position.clone(); v.y += 0.7; v.project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
     lock(v) { locked = v; if (v) { setHighlight(hoverId, false); hoverId = null; onHover && onHover(null); } },
     setVisible(id, v) { interact[id].visible = v; interact[id].obj.visible = v; rebuildColliders(); },
     rebuildColliders, planPath, walkable, colliders: () => colliders,

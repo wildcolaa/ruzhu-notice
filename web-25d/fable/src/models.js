@@ -61,7 +61,8 @@ const Models = (() => {
     root.updateMatrixWorld(true);
     root.traverse(o => {
       if (!o.isMesh || !o.visible) return;
-      const bb = new THREE.Box3().setFromObject(o);
+      if (o.isSkinnedMesh && o.computeBoundingBox) { o.computeBoundingBox(); }
+      const bb = new THREE.Box3().setFromObject(o, true);
       if (bb.isEmpty()) return;
       if (!any) { b.copy(bb); any = true; } else b.union(bb);
     });
@@ -151,7 +152,11 @@ const Models = (() => {
         const sz = spec.size || [1, 1, 1];
         fitToSize(inner, sz[0], sz[1], sz[2], spec.autoAlign);
         if (spec.lift) wrap.position.y += spec.lift;
-        if (id === 'player' || hostId === 'player') world.player.userData.visual = wrap;
+        if (id === 'player' || hostId === 'player') {
+          world.player.userData.visual = wrap;
+          // 带骨骼动画的主角：交给场景的动画混合器（walk / idle）
+          if (gltf.animations && gltf.animations.length && world.setPlayerAnim) world.setPlayerAnim(model, gltf.animations);
+        }
         host.children.forEach(ch => {
           if (ch.isLight) return;
           if (spec.keepScreen && ch.material && ch.material.isMeshBasicMaterial) {
