@@ -5332,6 +5332,9 @@ const NPC = (() => {
   // 世界状态仍然只由 RULES + applyAction 改变。
   // ============================================================
   const AI_STORE = 'ruzhu_ai';
+  // 内置 AI 线路：Cloudflare Worker 中转（web-25d/relay/worker.js），Groq Key 只存在 Worker 后台。
+  // 部署后把地址填在这里；页面上加 ?relay=<地址> 也可以临时指定（方便测试）。
+  const RELAY_URL = '';
   const AI_MODELS = [
     ['qwen/qwen3.8-27b', 'Qwen 3.8 27B（推荐，中文好、快）'],
     ['openai/gpt-oss-120b', 'GPT-OSS 120B（更稳，稍慢）'],
@@ -5344,10 +5347,16 @@ const NPC = (() => {
     cooldownUntil: 0,
     lastError: '',
   };
+  function relayUrl() {
+    try { const q = new URLSearchParams(location.search).get('relay'); if (q && /^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(q)) return q; } catch (e) {}
+    return RELAY_URL;
+  }
+  // 玩家自己填了 Key 就直连 Groq；否则走内置线路
   function hasGroq() { const c = AI.cfg(); return !!(c.key && c.enabled !== false); }
+  function hasRelay() { return !!relayUrl() && AI.cfg().enabled !== false; }
   function hasCowork() { return !!(window.cowork && typeof window.cowork.askClaude === 'function'); }
-  function canUseAI() { return hasGroq() || hasCowork(); }
-  function aiLabel() { return hasGroq() ? 'AI 对话 · Groq' : (hasCowork() ? 'AI 对话 · Claude' : '规则对话'); }
+  function canUseAI() { return hasGroq() || hasRelay() || hasCowork(); }
+  function aiLabel() { return hasGroq() ? 'AI 对话 · Groq（自有 Key）' : hasRelay() ? 'AI 对话 · Groq' : (hasCowork() ? 'AI 对话 · Claude' : '规则对话'); }
 
   // 去掉推理模型可能带出的 <think>，以及首尾引号
   function clean(t) {
@@ -5357,8 +5366,9 @@ const NPC = (() => {
   // messages: [{role, content}]；opts.json 要求 JSON 输出
   async function complete(system, messages, opts) {
     opts = opts || {};
-    if (hasGroq()) {
+    if (hasGroq() || hasRelay()) {
       if (Date.now() < AI.cooldownUntil) throw new Error('请求太频繁，稍等几秒');
+      const direct = hasGroq();
       const c = AI.cfg();
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), opts.timeout || 12000);
@@ -5374,9 +5384,9 @@ const NPC = (() => {
       if (opts.json) body.response_format = { type: 'json_object' };
       let r;
       try {
-        r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        r = await fetch(direct ? 'https://api.groq.com/openai/v1/chat/completions' : relayUrl(), {
           method: 'POST', signal: ctrl.signal,
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + c.key },
+          headers: direct ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + c.key } : { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
       } catch (e) {
@@ -5388,6 +5398,7 @@ const NPC = (() => {
         throw new Error(`免费额度暂时用满，约 ${Math.ceil(wait)} 秒后恢复`);
       }
       if (r.status === 401) throw new Error('API Key 无效');
+      if (r.status === 403 && !direct) throw new Error('内置线路拒绝了这个网站，请检查中转的来源白名单');
       if (!r.ok) {
         let m = ''; try { m = (await r.json()).error.message; } catch (e) {}
         throw new Error(`接口错误 ${r.status}${m ? '：' + m.slice(0, 80) : ''}`);
@@ -5516,7 +5527,7 @@ ${can ? `玩家可以让你做的事：${can}。如果玩家像是想要其中�
     return out;
   }
 
-  return { reply, canUseAI, aiLabel, hasGroq, testAI, AI, AI_MODELS, MEM, LOG, logEvent, remember, AGENTS, RULES, INTENTS };
+  return { reply, canUseAI, aiLabel, hasGroq, hasRelay, relayUrl, testAI, AI, AI_MODELS, MEM, LOG, logEvent, remember, AGENTS, RULES, INTENTS };
 })();
 
 </script>
@@ -5777,40 +5788,50 @@ async function openChat(id) {
   });
 }
 
-// ---------- AI 设置：Groq 免费 API Key（只存在本机浏览器）----------
+// ---------- AI 设置：内置线路（中转）+ 可选的个人 Groq Key ----------
 function openAISettings(after) {
   const c = NPC.AI.cfg();
+  const relay = !!NPC.relayUrl();
   const masked = c.key ? c.key.slice(0, 4) + '…' + c.key.slice(-4) : '';
+  const off = c.enabled === false;
   const models = NPC.AI_MODELS.map(([v, l]) => `<option value="${esc(v)}" ${(c.model || NPC.AI_MODELS[0][0]) === v ? 'selected' : ''}>${esc(l)}</option>`).join('');
   openModal(`<h2>AI 设置</h2>
-    <p>家电可以接上 <b>Groq</b> 的免费模型，用自然语言和它们对话。没有 Key 时仍是规则对白，同样可以通关。</p>
-    <p class="hint">1. 打开 <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>，用邮箱或 Google 登录，点 Create API Key。<br>
-    2. 把 <code>gsk_</code> 开头的 Key 粘贴到下面。</p>
-    <label class="hint" for="aikey">Groq API Key${masked ? `（已保存：${esc(masked)}）` : ''}</label>
+    ${relay
+      ? `<p>家电已经接上内置的 <b>Groq</b> 免费模型，打开游戏就能直接和它们对话，<b>不需要填 Key</b>。</p>
+         <p class="hint">内置线路大家共用免费额度，人多时可能要等几秒。想更稳定，可以在下面填你自己的免费 Key（<a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>），填了就优先用你的。</p>`
+      : `<p>家电可以接上 <b>Groq</b> 的免费模型，用自然语言和它们对话。没有 Key 时仍是规则对白，同样可以通关。</p>
+         <p class="hint">1. 打开 <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>，用邮箱或 Google 登录，点 Create API Key。<br>2. 把 <code>gsk_</code> 开头的 Key 粘贴到下面。</p>`}
+    <label class="hint" for="aikey">${relay ? '个人 Groq API Key（可选）' : 'Groq API Key'}${masked ? `（已保存：${esc(masked)}）` : ''}</label>
     <div class="row" style="margin-top:4px"><input id="aikey" type="password" placeholder="${masked ? '留空则保留已保存的 Key' : 'gsk_...'}" autocomplete="off" spellcheck="false"/></div>
     <label class="hint" for="aimodel" style="display:block;margin-top:12px">模型</label>
     <div class="row" style="margin-top:4px"><select id="aimodel" style="flex:1;padding:10px;background:#f7f0e0;border:1px solid rgba(42,33,24,.18);font-size:14px">${models}</select></div>
-    <p class="hint" id="aistatus" aria-live="polite"></p>
-    <p class="hint">Key 只保存在这台电脑的浏览器里（localStorage），对话时直接发给 Groq，不经过其他服务器，也不会写进游戏文件。在公用电脑上玩完记得点「清除 Key」。家电说什么由 AI 生成，但开门、导出记录、结局等结果仍由游戏规则决定。</p>
+    <p class="hint" id="aistatus" aria-live="polite">${off ? '当前已关闭 AI，使用规则对白。' : ''}</p>
+    <p class="hint">${relay ? '内置线路经过游戏的中转服务转发给 Groq，网页里不包含任何 Key。' : ''}个人 Key 只保存在这台电脑的浏览器里（localStorage），对话时直接发给 Groq，不会写进游戏文件；在公用电脑上玩完记得清除。家电说什么由 AI 生成，但开门、导出记录、结局等结果仍由游戏规则决定。</p>
     <div class="choices">
       <button id="aisave">保存并测试连接</button>
-      ${c.key ? '<button id="aiclear">清除 Key，改回规则对白</button>' : ''}
+      ${c.key ? '<button id="aiclear">清除个人 Key</button>' : ''}
+      ${relay || c.key ? `<button id="aitoggle">${off ? '重新开启 AI 对话' : '关闭 AI，改用规则对白'}</button>` : ''}
       <button id="aiclose">关闭</button>
     </div>`, sh => {
     const st = sh.querySelector('#aistatus');
     const done = () => { closeModal(); refreshHUD(); after && after(); };
     sh.querySelector('#aiclose').onclick = done;
     const clr = sh.querySelector('#aiclear');
-    if (clr) clr.onclick = () => { NPC.AI.clear(); toast('已清除 Key，改用规则对白'); done(); };
+    if (clr) clr.onclick = () => { const n = NPC.AI.cfg(); delete n.key; NPC.AI.save(n); toast(relay ? '已清除个人 Key，改用内置线路' : '已清除 Key，改用规则对白'); done(); };
+    const tg = sh.querySelector('#aitoggle');
+    if (tg) tg.onclick = () => { const n = NPC.AI.cfg(); n.enabled = off; NPC.AI.save(n); toast(off ? 'AI 对话已开启' : '已改用规则对白'); done(); };
     sh.querySelector('#aisave').onclick = async () => {
-      const key = sh.querySelector('#aikey').value.trim() || c.key || '';
+      const typed = sh.querySelector('#aikey').value.trim();
+      const key = typed || c.key || '';
       const model = sh.querySelector('#aimodel').value;
-      if (!/^gsk_[A-Za-z0-9]{20,}$/.test(key)) { st.textContent = 'Key 格式不对：应以 gsk_ 开头。'; return; }
-      NPC.AI.save({ key, model, enabled: true });
+      if (typed && !/^gsk_[A-Za-z0-9]{20,}$/.test(typed)) { st.textContent = 'Key 格式不对：应以 gsk_ 开头。'; return; }
+      if (!key && !relay) { st.textContent = '请先填入 Key。'; return; }
+      const n = { model, enabled: true }; if (key) n.key = key;
+      NPC.AI.save(n);
       st.textContent = '正在测试……';
       try {
         const out = await NPC.testAI();
-        st.textContent = `连接成功。小灯：「${out}」`;
+        st.textContent = `连接成功（${NPC.aiLabel()}）。小灯：「${out}」`;
         toast('AI 对话已开启');
         refreshHUD();
       } catch (e) {
@@ -6142,7 +6163,7 @@ const Boot = (() => {
       <p><kbd>WASD</kbd> / 方向键移动，也可以点击地面。<kbd>E</kbd> 和身边的物件、家电互动。</p>
       <p>滚轮缩放，<kbd>N</kbd> 打开手机。</p>
       <p>对话时按住<kbd>空格</kbd>说话，松开发送；也可以直接打字。</p>
-      <p class="hint">${NPC.canUseAI() ? esc(NPC.aiLabel()) + ' 已开启，可以和家电自由对话。' : '当前为规则对白，同样可以通关。按右侧圆键填入免费的 Groq Key，就能和家电自由对话。'}</p>`,
+      <p class="hint">${NPC.canUseAI() ? esc(NPC.aiLabel()) + ' 已开启，可以直接和家电自由对话。' : '当前为规则对白，同样可以通关。按右侧圆键可以设置 AI 对话。'}</p>`,
     () => `<div class="tab">入住档案</div>${saveInfo()}`,
   ];
   function render(jitter) {

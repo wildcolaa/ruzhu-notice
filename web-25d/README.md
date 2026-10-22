@@ -10,7 +10,7 @@
 - 每台家电只有**一个输入框**：问、说服、指挥、做实验都可以。对话时**按住空格说话，松开发送**（浏览器语音识别，需允许麦克风；Chrome / Edge 支持最好）。Shift+空格输入普通空格。
 - 滚轮缩放。N 打开手机（已导出的原始记录 + 住宅动态 + 小饱）。
 - 无模型时用规则对白，同样可以通关。
-- **和家电自由对话（免费）**：点「AI 设置」，填入 [Groq](https://console.groq.com/keys) 的免费 API Key（`gsk_` 开头）。Key 只存在本机浏览器的 localStorage，对话时直接发给 Groq，不会写进仓库。AI 负责理解玩家的说法、用设备口吻回答；开门、导出记录、结局等**结果仍由规则引擎决定**，AI 不可用或超额时自动回落到规则对白。在 Claude Cowork 里打开且没填 Key 时，改用 Cowork 的 Claude。
+- **和家电自由对话（免费）**：AI 通过 `relay/` 里的 Cloudflare Worker 中转接入 Groq，Groq Key 只存在 Worker 后台，网页和仓库里都没有。部署步骤见 [relay/README.md](relay/README.md)，部署后把地址填到 `fable/src/npc.js` 的 `RELAY_URL`。玩家也可以在「AI 设置」里填自己的免费 Key（只存在本机浏览器）。AI 负责理解玩家的说法、用设备口吻回答；开门、导出记录、结局等**结果仍由规则引擎决定**，AI 不可用或超额时自动回落到规则对白。
 
 ## 源码
 

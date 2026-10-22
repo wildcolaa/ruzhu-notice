@@ -135,7 +135,7 @@ const Boot = (() => {
       <p><kbd>WASD</kbd> / 方向键移动，也可以点击地面。<kbd>E</kbd> 和身边的物件、家电互动。</p>
       <p>滚轮缩放，<kbd>N</kbd> 打开手机。</p>
       <p>对话时按住<kbd>空格</kbd>说话，松开发送；也可以直接打字。</p>
-      <p class="hint">${NPC.canUseAI() ? esc(NPC.aiLabel()) + ' 已开启，可以和家电自由对话。' : '当前为规则对白，同样可以通关。按右侧圆键填入免费的 Groq Key，就能和家电自由对话。'}</p>`,
+      <p class="hint">${NPC.canUseAI() ? esc(NPC.aiLabel()) + ' 已开启，可以直接和家电自由对话。' : '当前为规则对白，同样可以通关。按右侧圆键可以设置 AI 对话。'}</p>`,
     () => `<div class="tab">入住档案</div>${saveInfo()}`,
   ];
   function render(jitter) {

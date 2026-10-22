@@ -145,6 +145,9 @@ const NPC = (() => {
   // 世界状态仍然只由 RULES + applyAction 改变。
   // ============================================================
   const AI_STORE = 'ruzhu_ai';
+  // 内置 AI 线路：Cloudflare Worker 中转（web-25d/relay/worker.js），Groq Key 只存在 Worker 后台。
+  // 部署后把地址填在这里；页面上加 ?relay=<地址> 也可以临时指定（方便测试）。
+  const RELAY_URL = '';
   const AI_MODELS = [
     ['qwen/qwen3.8-27b', 'Qwen 3.8 27B（推荐，中文好、快）'],
     ['openai/gpt-oss-120b', 'GPT-OSS 120B（更稳，稍慢）'],
@@ -157,10 +160,16 @@ const NPC = (() => {
     cooldownUntil: 0,
     lastError: '',
   };
+  function relayUrl() {
+    try { const q = new URLSearchParams(location.search).get('relay'); if (q && /^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(q)) return q; } catch (e) {}
+    return RELAY_URL;
+  }
+  // 玩家自己填了 Key 就直连 Groq；否则走内置线路
   function hasGroq() { const c = AI.cfg(); return !!(c.key && c.enabled !== false); }
+  function hasRelay() { return !!relayUrl() && AI.cfg().enabled !== false; }
   function hasCowork() { return !!(window.cowork && typeof window.cowork.askClaude === 'function'); }
-  function canUseAI() { return hasGroq() || hasCowork(); }
-  function aiLabel() { return hasGroq() ? 'AI 对话 · Groq' : (hasCowork() ? 'AI 对话 · Claude' : '规则对话'); }
+  function canUseAI() { return hasGroq() || hasRelay() || hasCowork(); }
+  function aiLabel() { return hasGroq() ? 'AI 对话 · Groq（自有 Key）' : hasRelay() ? 'AI 对话 · Groq' : (hasCowork() ? 'AI 对话 · Claude' : '规则对话'); }
 
   // 去掉推理模型可能带出的 <think>，以及首尾引号
   function clean(t) {
@@ -170,8 +179,9 @@ const NPC = (() => {
   // messages: [{role, content}]；opts.json 要求 JSON 输出
   async function complete(system, messages, opts) {
     opts = opts || {};
-    if (hasGroq()) {
+    if (hasGroq() || hasRelay()) {
       if (Date.now() < AI.cooldownUntil) throw new Error('请求太频繁，稍等几秒');
+      const direct = hasGroq();
       const c = AI.cfg();
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), opts.timeout || 12000);
@@ -187,9 +197,9 @@ const NPC = (() => {
       if (opts.json) body.response_format = { type: 'json_object' };
       let r;
       try {
-        r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        r = await fetch(direct ? 'https://api.groq.com/openai/v1/chat/completions' : relayUrl(), {
           method: 'POST', signal: ctrl.signal,
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + c.key },
+          headers: direct ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + c.key } : { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
       } catch (e) {
@@ -201,6 +211,7 @@ const NPC = (() => {
         throw new Error(`免费额度暂时用满，约 ${Math.ceil(wait)} 秒后恢复`);
       }
       if (r.status === 401) throw new Error('API Key 无效');
+      if (r.status === 403 && !direct) throw new Error('内置线路拒绝了这个网站，请检查中转的来源白名单');
       if (!r.ok) {
         let m = ''; try { m = (await r.json()).error.message; } catch (e) {}
         throw new Error(`接口错误 ${r.status}${m ? '：' + m.slice(0, 80) : ''}`);
@@ -329,5 +340,5 @@ ${can ? `玩家可以让你做的事：${can}。如果玩家像是想要其中�
     return out;
   }
 
-  return { reply, canUseAI, aiLabel, hasGroq, testAI, AI, AI_MODELS, MEM, LOG, logEvent, remember, AGENTS, RULES, INTENTS };
+  return { reply, canUseAI, aiLabel, hasGroq, hasRelay, relayUrl, testAI, AI, AI_MODELS, MEM, LOG, logEvent, remember, AGENTS, RULES, INTENTS };
 })();
