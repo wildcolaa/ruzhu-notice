@@ -4971,8 +4971,21 @@ const World = (() => {
     mixer = new THREE.AnimationMixer(model);
     act = {};
     clips.forEach(c => {
-      // 去掉根骨骼的位移轨道，避免走路动画自己把人往前推、和游戏里的移动叠加
-      c.tracks = c.tracks.filter(t => !(/\.position$/.test(t.name) && /hips|root|pelvis/i.test(t.name)));
+      // 根动作：Tripo 的 walk 会让 Hip 沿前进方向一圈挪 0.7m（in-place 之外的位移），
+      // 游戏自己移动角色，所以把 Hip / Root 的位移改成「只保留上下起伏」，前后左右固定在绑定姿势。
+      c.tracks = c.tracks.map(t => {
+        if (!/\.position$/.test(t.name) || !/(^|[.:/])(hip|hips|root|pelvis)\.position$/i.test(t.name)) return t;
+        const bone = model.getObjectByName(t.name.replace(/\.position$/, ''));
+        if (!bone) return t;
+        const rest = bone.position, v = t.values.slice();
+        // 找出位移最大的轴（就是前进方向），把它和另一条水平轴压回静止值；上下起伏保留
+        const span = [0, 1, 2].map(k => { let lo = 1e9, hi = -1e9; for (let i = k; i < v.length; i += 3) { lo = Math.min(lo, v[i]); hi = Math.max(hi, v[i]); } return hi - lo; });
+        const fwd = span.indexOf(Math.max(...span));
+        for (let i = 0; i < v.length; i += 3) {
+          for (let k = 0; k < 3; k++) if (k === fwd) v[i + k] = rest.getComponent(k);
+        }
+        return new THREE.VectorKeyframeTrack(t.name, t.times, v);
+      });
       act[c.name.toLowerCase()] = mixer.clipAction(c);
     });
     curAct = null; playAnim('idle', 0);
@@ -5154,14 +5167,27 @@ const Models = (() => {
   }
 
   // 把 PBR 材质转成卡通材质，保留贴图，与整体风格一致
+  // 蒙皮网格：Box3.setFromObject 只看未变形的原始顶点（Tripo 绑骨后原始顶点是 y −1..1，
+  // 套上骨骼才是 0..1），会让角色被缩小一半、脚悬空。这里按骨骼变形后的顶点算。
+  function skinnedBox(o) {
+    const b = new THREE.Box3(), v = new THREE.Vector3(), pos = o.geometry.attributes.position;
+    o.updateMatrixWorld(true);
+    if (o.skeleton) o.skeleton.update();
+    const step = Math.max(1, Math.floor(pos.count / 4000));
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i);
+      o.boneTransform(i, v);
+      b.expandByPoint(v.applyMatrix4(o.matrixWorld));
+    }
+    return b;
+  }
   function visBox(root) {
     const b = new THREE.Box3();
     let any = false;
     root.updateMatrixWorld(true);
     root.traverse(o => {
       if (!o.isMesh || !o.visible) return;
-      if (o.isSkinnedMesh && o.computeBoundingBox) { o.computeBoundingBox(); }
-      const bb = new THREE.Box3().setFromObject(o, true);
+      const bb = o.isSkinnedMesh ? skinnedBox(o) : new THREE.Box3().setFromObject(o, true);
       if (bb.isEmpty()) return;
       if (!any) { b.copy(bb); any = true; } else b.union(bb);
     });

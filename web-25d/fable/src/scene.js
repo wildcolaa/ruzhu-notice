@@ -1063,8 +1063,21 @@ const World = (() => {
     mixer = new THREE.AnimationMixer(model);
     act = {};
     clips.forEach(c => {
-      // 去掉根骨骼的位移轨道，避免走路动画自己把人往前推、和游戏里的移动叠加
-      c.tracks = c.tracks.filter(t => !(/\.position$/.test(t.name) && /hips|root|pelvis/i.test(t.name)));
+      // 根动作：Tripo 的 walk 会让 Hip 沿前进方向一圈挪 0.7m（in-place 之外的位移），
+      // 游戏自己移动角色，所以把 Hip / Root 的位移改成「只保留上下起伏」，前后左右固定在绑定姿势。
+      c.tracks = c.tracks.map(t => {
+        if (!/\.position$/.test(t.name) || !/(^|[.:/])(hip|hips|root|pelvis)\.position$/i.test(t.name)) return t;
+        const bone = model.getObjectByName(t.name.replace(/\.position$/, ''));
+        if (!bone) return t;
+        const rest = bone.position, v = t.values.slice();
+        // 找出位移最大的轴（就是前进方向），把它和另一条水平轴压回静止值；上下起伏保留
+        const span = [0, 1, 2].map(k => { let lo = 1e9, hi = -1e9; for (let i = k; i < v.length; i += 3) { lo = Math.min(lo, v[i]); hi = Math.max(hi, v[i]); } return hi - lo; });
+        const fwd = span.indexOf(Math.max(...span));
+        for (let i = 0; i < v.length; i += 3) {
+          for (let k = 0; k < 3; k++) if (k === fwd) v[i + k] = rest.getComponent(k);
+        }
+        return new THREE.VectorKeyframeTrack(t.name, t.times, v);
+      });
       act[c.name.toLowerCase()] = mixer.clipAction(c);
     });
     curAct = null; playAnim('idle', 0);

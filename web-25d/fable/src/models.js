@@ -55,14 +55,27 @@ const Models = (() => {
   }
 
   // 把 PBR 材质转成卡通材质，保留贴图，与整体风格一致
+  // 蒙皮网格：Box3.setFromObject 只看未变形的原始顶点（Tripo 绑骨后原始顶点是 y −1..1，
+  // 套上骨骼才是 0..1），会让角色被缩小一半、脚悬空。这里按骨骼变形后的顶点算。
+  function skinnedBox(o) {
+    const b = new THREE.Box3(), v = new THREE.Vector3(), pos = o.geometry.attributes.position;
+    o.updateMatrixWorld(true);
+    if (o.skeleton) o.skeleton.update();
+    const step = Math.max(1, Math.floor(pos.count / 4000));
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i);
+      o.boneTransform(i, v);
+      b.expandByPoint(v.applyMatrix4(o.matrixWorld));
+    }
+    return b;
+  }
   function visBox(root) {
     const b = new THREE.Box3();
     let any = false;
     root.updateMatrixWorld(true);
     root.traverse(o => {
       if (!o.isMesh || !o.visible) return;
-      if (o.isSkinnedMesh && o.computeBoundingBox) { o.computeBoundingBox(); }
-      const bb = new THREE.Box3().setFromObject(o, true);
+      const bb = o.isSkinnedMesh ? skinnedBox(o) : new THREE.Box3().setFromObject(o, true);
       if (bb.isEmpty()) return;
       if (!any) { b.copy(bb); any = true; } else b.union(bb);
     });
