@@ -63,6 +63,9 @@ ASSETS = {
                      "hip joint and knees, one leg crossed over the other", "PILE"),
     "st_tools": "a dented old grey-green metal tool cabinet, one door hanging half open, a crowbar and rusty tools inside, peeling paint",
     "st_radiator": "a tall old cast iron column radiator, cream paint peeling, rust at the valves, standing on short feet",
+    # ---- 吊灯（替换原来的几何吊灯，只放在部分房间）----
+    "lamp_pendant": "an old enamel pendant ceiling lamp hanging from a short cord, dented dark green metal dome shade, warm glowing bulb, dusty",
+    "lamp_bulb": "a single bare incandescent light bulb hanging from a long twisted black cord with a cracked bakelite socket, glowing",
 }
 # 成堆的物件：去掉 "multiple objects"
 NEG_PILE = NEG.replace("multiple objects, ", "")

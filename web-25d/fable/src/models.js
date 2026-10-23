@@ -71,6 +71,11 @@ const Models = (() => {
     st_mannequin: { size: [1.05, 0.28, 0.55], rotY: 0 },
     st_tools: { size: [0.9, 1.5, 0.6], rotY: 0, alias: 'tools' },
     st_radiator: { size: [0.55, 0.95, 0.22], rotY: 0 },
+    // 吊灯：lift = 天花板 3.15 - 模型高度；emit 只让灯罩/灯泡自发光，不额外加点光源
+    lamp_pendant: { size: [0.55, 0.8, 0.55], rotY: 0, lift: 2.35, emit: 0xffc27a },
+    lamp_pendant2: { src: 'lamp_pendant', size: [0.55, 0.8, 0.55], rotY: 0, lift: 2.35, emit: 0xffc27a },
+    lamp_bulb: { size: [0.16, 0.95, 0.16], rotY: 0, lift: 2.2, emit: 0xffd9a0 },
+    lamp_bulb2: { src: 'lamp_bulb', size: [0.16, 0.95, 0.16], rotY: 0, lift: 2.2, emit: 0xffa250 },
     st_sheets2: { src: 'de_laundry', size: [0.85, 0.3, 0.6], rotY: 0.4 },
     st_lamp: { src: 'de_walllamp', size: [0.28, 0.3, 0.28], rotY: 0, lift: 1.9, glow: 0xffd09a },
     st_bottles: { src: 'de_bottles', size: [0.45, 0.32, 0.35], rotY: 0 },
@@ -211,6 +216,7 @@ const Models = (() => {
           inner.position.x -= c2.x; inner.position.z -= c2.z; inner.position.y -= b2.min.y;
         }
         if (spec.lift) wrap.position.y += spec.lift;
+        if (spec.emit) wrap.traverse(o => { if (o.isMesh && o.material) { o.material.emissive = new THREE.Color(spec.emit); o.material.emissiveIntensity = 0.35; } });
         if (spec.glow) {
           const L = new THREE.PointLight(spec.glow, 1.1, 4.5, 1.8);
           L.position.set(0, (spec.size || [1, 1, 1])[1] * 0.85, 0.15); wrap.add(L);

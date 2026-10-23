@@ -912,6 +912,11 @@ const World = (() => {
     ['de_ceilfan', -2.6, 0, -3.0, '吊扇', [-2.6, -1.6]],
     ['de_reeltape', -4.3, 0, -5.6, '磁带机', [-4.3, -4.6]],
     ['de_bookshelf', -5.8, 0, -4.5, '书架', [-5.0, -4.5]],
+    // 吊灯（Tripo 模型，挂在 LAMP_POS 的位置，与 PENDANT_ROOMS 对应）
+    ['lamp_pendant', 3.6, 0, -3.2, '吊灯', [3.6, -2.4]],
+    ['lamp_pendant2', 1.0, 0, 3.0, '吊灯', [1.0, 2.2]],
+    ['lamp_bulb', -4.0, 0, 3.0, '裸灯泡', [-3.6, 2.4]],
+    ['lamp_bulb2', -8.6, -1.4, 2.6, '裸灯泡', [-9.2, 2.6]],
     // 储物间（参考极乐迪斯科：堆起来的扶手椅、床单枕头、掉下来的吊扇、满地杂物）
     // 第 7 项可选：[rx, ry, rz] 整组旋转
     ['st_armpile', -5.4, 0, 0.72, '叠在一起的旧皮扶手椅', [-4.5, 1.0], [0, 0.12, 0]],
@@ -1410,6 +1415,8 @@ const World = (() => {
     parent.add(m);
     return m;
   }
+  // 有吊灯的房间：厨房、玄关挂搪瓷吊灯，储物间、地下室是裸灯泡。客厅有吊扇、卧室有台灯和壁灯，浴室/阳台不挂
+  const PENDANT_ROOMS = new Set(['kitchen', 'entry', 'storage', 'plant']);
   const LAMP_POS = {
     bedroom: [-9.0, -3.0], living: [-2.6, -3.0], kitchen: [3.6, -3.2], balcony: [8.0, -2.6],
     plant: [-8.6, 2.6], storage: [-4.0, 3.0], entry: [1.0, 3.0], bath: [7.0, 3.2],
@@ -1425,17 +1432,13 @@ const World = (() => {
     const l = new THREE.PointLight(0xffc477, 0.5, 10, 1.2);
     l.position.set(x, top - 0.35, z);
     root.add(l);
-    // 吊线 + 灯罩 + 灯泡
-    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 4), toon(0x111111));
-    cord.position.set(x, top + 0.3, z); root.add(cord);
-    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.3, 18, 1, true), toon(0x3d4a3a));
-    shade.position.set(x, top - 0.05, z); root.add(shade);
-    if (k === 'plant') { shade.scale.set(0.001, 0.001, 0.001); l.color.set(0xffa250); }   // 地下室：裸灯泡
-    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), bulbMat);
-    bulb.position.set(x, top - 0.18, z); root.add(bulb);
+    if (k === 'plant') l.color.set(0xffa250);
+    // 灯具本身是 Tripo 模型（PENDANTS），只挂在部分房间；没有吊灯的房间不画光锥，靠落地灯/壁灯/窗光
+    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });   // 只用来记录灯色（setMood 会改）
     const cone = lightCone(root, x, top - 0.25, z, 0.25, 1.5, top - 0.25 - r.y, 0xffb35c, 0.10);
-    roomLights[k] = { l, bulbMat, cone, fixture: [cord, shade, bulb], base: 0.5, flicker: k === 'storage' || k === 'plant' };
+    cone.userData.hasLamp = PENDANT_ROOMS.has(k);
+    if (!cone.userData.hasLamp) cone.scale.set(0.001, 0.001, 0.001);
+    roomLights[k] = { l, bulbMat, cone, fixture: [], base: 0.5, flicker: k === 'storage' || k === 'plant' };
   });
 
   // 月光：穿过窗户的冷色光柱
