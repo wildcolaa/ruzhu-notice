@@ -9,20 +9,20 @@ const Models = (() => {
   // 每个模型的摆放参数：fit 用哪条轴对齐原尺寸，rotY 修正 Tripo 的朝向
   // size: 目标世界尺寸 [宽, 高, 深]；rotY 修正 Tripo 朝向
   const SPEC = {
-    sofa: { size: [3.0, 1.15, 1.2], rotY: 0 },
-    tv: { size: [2.4, 1.7, 0.7], rotY: 0, keepScreen: true, screen: [0, 1.5, 0.16] },
-    bed: { size: [2.2, 0.9, 1.55], rotY: 0 },
+    sofa: { size: [2.8, 1.0, 1.1], rotY: 0 },
+    tv: { size: [1.0, 1.15, 0.6], rotY: 0, keepScreen: true, screen: [0, 0.85, 0.32] },
+    bed: { size: [2.2, 1.0, 1.25], rotY: 0 },
     planner: { size: [1.05, 2.15, 0.95], rotY: 0, keepScreen: true, screen: [0, 1.45, 0.5], alias: 'fridge' },
     tortoise: { size: [0.5, 0.32, 0.55], rotY: 0 },
-    tub: { size: [2.4, 0.85, 1.15], rotY: 0 },
+    tub: { size: [2.2, 0.8, 1.0], rotY: 0 },
     crate: { size: [0.7, 0.7, 0.7], rotY: 0 },
-    mirror: { size: [0.95, 1.6, 0.12], rotY: 0, lift: 0.7 },
+    mirror: { size: [0.75, 1.6, 0.5], rotY: 0 },
     console: { size: [1.2, 1.4, 0.7], rotY: 0, alias: 'power' },
     server: { size: [0.9, 1.4, 0.7], rotY: 0, alias: 'reject_log' },
     broadcast: { size: [1.15, 1.4, 0.7], rotY: 0, alias: 'radio' },
     npc_echo: { size: [0.9, 1.4, 0.7], rotY: 0, keepLights: true, alias: 'reject_log' },
     door: { size: [1.5, 2.5, 0.14], rotY: 0, keepLights: true, alias: 'lock' },
-    shoes: { size: [0.6, 0.9, 1.8], rotY: 0 },
+    shoes: { size: [1.6, 0.9, 0.6], rotY: Math.PI / 2 },
     npc_qing: { size: [0.55, 0.55, 0.55], rotY: 0, float: true, alias: 'home' },
     // 网格脸朝 +X；走路逻辑假定角色朝 +Z，所以先转 -90°。不要再按长轴自动转。
     player: { size: [0.72, 1.45, 0.72], rotY: -Math.PI / 2, autoAlign: false },   // 大头 Q 版：放宽宽度，避免被缩得太小
@@ -44,6 +44,23 @@ const Models = (() => {
     deco_shelf: { size: [1.4, 1.8, 0.45], rotY: 0 },
     deco_fan: { size: [0.4, 0.55, 0.4], rotY: 0 },
     deco_typewriter: { size: [0.5, 0.22, 0.4], rotY: 0 },
+    // ---- 极乐迪斯科风格的布景（tripo_de.py 生成）----
+    de_radiator: { size: [1.1, 0.75, 0.22], rotY: 0 },
+    de_armchair: { size: [0.85, 0.95, 0.85], rotY: 0 },
+    de_armchair2: { size: [0.95, 0.95, 0.9], rotY: 0 },
+    de_ceilfan: { size: [1.4, 0.45, 1.4], rotY: 0, lift: 2.65 },
+    de_rug: { size: [2.6, 0.03, 1.8], rotY: 0, flat: true },
+    de_reeltape: { size: [1.0, 0.9, 0.45], rotY: 0 },
+    de_laundry: { size: [1.2, 0.45, 0.9], rotY: 0 },
+    de_bottles: { size: [0.55, 0.38, 0.4], rotY: 0 },
+    de_bookshelf: { size: [0.8, 1.7, 0.32], rotY: 0 },
+    de_desk: { size: [1.3, 1.05, 0.65], rotY: 0 },
+    de_walllamp: { size: [0.28, 0.3, 0.28], rotY: 0, lift: 1.85, glow: 0xffd09a },
+    de_floorlamp: { size: [0.5, 1.7, 0.5], rotY: 0, glow: 0xffc27a },
+    de_coatrack: { size: [0.8, 1.05, 0.3], rotY: 0, lift: 1.0 },
+    de_debris: { size: [1.2, 0.4, 0.9], rotY: 0 },
+    de_boiler: { size: [0.75, 1.6, 0.75], rotY: 0 },
+    de_chairs: { size: [0.55, 1.0, 0.6], rotY: 0.5 },
   };
   const loaded = {};
   const floaters = [];
@@ -158,6 +175,12 @@ const Models = (() => {
         const gltf = await new Promise((res, rej) => loader.parse(b64ToBuf(data[id]), '', res, rej));
         const model = gltf.scene;
         model.rotation.y = spec.rotY || 0;
+        if (spec.flat) {
+          const bb0 = new THREE.Box3().setFromObject(model), sz0 = bb0.getSize(new THREE.Vector3());
+          const thin = Math.min(sz0.x, sz0.y, sz0.z);
+          if (thin === sz0.z) model.rotation.x = -Math.PI / 2;        // 立在 XY 平面
+          else if (thin === sz0.x) model.rotation.z = Math.PI / 2;    // 立在 YZ 平面
+        }
         stripGround(model);
         stylize(model, world.gradTex);
         const wrap = new THREE.Group();
@@ -165,6 +188,11 @@ const Models = (() => {
         const sz = spec.size || [1, 1, 1];
         fitToSize(inner, sz[0], sz[1], sz[2], spec.autoAlign);
         if (spec.lift) wrap.position.y += spec.lift;
+        if (spec.glow) {
+          const L = new THREE.PointLight(spec.glow, 1.1, 4.5, 1.8);
+          L.position.set(0, (spec.size || [1, 1, 1])[1] * 0.85, 0.15); wrap.add(L);
+          wrap.traverse(o => { if (o.isMesh && o.material) { o.material.emissive = new THREE.Color(spec.glow); o.material.emissiveIntensity = 0.18; } });
+        }
         if (id === 'player' || hostId === 'player') {
           world.player.userData.visual = wrap;
           // 带骨骼动画的主角：交给场景的动画混合器（walk / idle）

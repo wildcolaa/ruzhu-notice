@@ -11,9 +11,9 @@ const World = (() => {
   renderer.outputEncoding = THREE.sRGBEncoding;
 
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.28;
+  renderer.toneMappingExposure = 1.2;
 
-  const NIGHT_BG = 0x120d09;
+  const NIGHT_BG = 0x050505;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(NIGHT_BG);
   scene.fog = new THREE.Fog(NIGHT_BG, 18, 55);
@@ -23,8 +23,38 @@ const World = (() => {
   // ---------- 后期：Bloom + 暗角 / 颗粒 / 色偏 / 冷调分级 ----------
   const composer = new THREE.EffectComposer(renderer);
   composer.addPass(new THREE.RenderPass(scene, camera));
-  const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(512, 512), 0.9, 0.6, 0.72);
+  const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(512, 512), 0.7, 0.8, 0.68);
   composer.addPass(bloom);
+  // 油画滤镜（极乐迪斯科的手绘感）：Kuwahara 取四个象限里方差最小的平均色，
+  // 边缘保持锐利、平坦处变成一块块颜料；半径随屏幕大小缩放
+  const paint = new THREE.ShaderPass({
+    uniforms: { tDiffuse: { value: null }, uRes: { value: new THREE.Vector2(1280, 720) }, uR: { value: 3.0 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `
+      uniform sampler2D tDiffuse; uniform vec2 uRes; uniform float uR; varying vec2 vUv;
+      void main(){
+        vec2 px = 1.0 / uRes;
+        vec3 m[4]; vec3 s2[4];
+        for (int k = 0; k < 4; k++) { m[k] = vec3(0.0); s2[k] = vec3(0.0); }
+        const int R = 3;
+        for (int j = -R; j <= R; j++) for (int i = -R; i <= R; i++) {
+          vec3 c = texture2D(tDiffuse, vUv + vec2(float(i), float(j)) * px * uR / 3.0).rgb;
+          if (i <= 0 && j <= 0) { m[0] += c; s2[0] += c * c; }
+          if (i >= 0 && j <= 0) { m[1] += c; s2[1] += c * c; }
+          if (i <= 0 && j >= 0) { m[2] += c; s2[2] += c * c; }
+          if (i >= 0 && j >= 0) { m[3] += c; s2[3] += c * c; }
+        }
+        float n = float((R + 1) * (R + 1));
+        float best = 1e9; vec3 outc = vec3(0.0);
+        for (int k = 0; k < 4; k++) {
+          vec3 mu = m[k] / n; vec3 v = abs(s2[k] / n - mu * mu);
+          float sv = v.r + v.g + v.b;
+          if (sv < best) { best = sv; outc = mu; }
+        }
+        gl_FragColor = vec4(outc, 1.0);
+      }`,
+  });
+  composer.addPass(paint);
   const grade = new THREE.ShaderPass({
     uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uAlarm: { value: 0 }, uPulse: { value: 0 }, uFade: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -39,20 +69,29 @@ const World = (() => {
         c.r = texture2D(tDiffuse, vUv + d * ca).r;
         c.g = texture2D(tDiffuse, vUv).g;
         c.b = texture2D(tDiffuse, vUv - d * ca).b;
-        // 冷调分级：暗部偏蓝青，亮部保留暖色
+        // 极乐迪斯科式分级：暗部偏青灰蓝，中间调去饱和，高光暖白
         float l = dot(c, vec3(0.299,0.587,0.114));
-        vec3 shadowTint = vec3(1.04, 0.86, 0.72);
-        vec3 hiTint = vec3(1.10, 0.98, 0.80);
-        c *= mix(shadowTint, hiTint, smoothstep(0.15, 0.75, l));
-        c = mix(vec3(l), c, 0.80);
+        vec3 shadowTint = vec3(0.80, 0.90, 1.02);
+        vec3 midTint = vec3(0.98, 0.97, 0.94);
+        vec3 hiTint = vec3(1.10, 1.02, 0.88);
+        vec3 tint = mix(shadowTint, midTint, smoothstep(0.05, 0.35, l));
+        tint = mix(tint, hiTint, smoothstep(0.45, 0.85, l));
+        c *= tint;
+        c = mix(vec3(l), c, 0.72);
+        // 轻微 S 曲线：压黑暗部（参考图里画面外是纯黑），提一点亮部
+        c = clamp(c, 0.0, 1.0);
+        c = c * c * (3.0 - 2.0 * c) * 0.55 + c * 0.45;
+        c = max(c - 0.015, 0.0) * 1.03;
+        // 画布纹理：纵横交织的细纹，只在中间调可见
+        float weave = sin(vUv.x * 1400.0) * sin(vUv.y * 1400.0 * 0.62);
+        c *= 1.0 + weave * 0.018 * smoothstep(0.08, 0.5, l);
         // 终夜警报：红色压暗
         c = mix(c, c * vec3(1.25, 0.55, 0.5), uAlarm * (0.55 + 0.45 * uPulse));
         // 暗角
         c *= smoothstep(0.92, 0.28, r);
         // 胶片颗粒 + 扫描线
         float g = rnd(vUv * vec2(1920.0, 1080.0) + fract(uTime) * 91.0) - 0.5;
-        c += g * 0.055;
-        c *= 0.985 + 0.015 * sin(vUv.y * 900.0 + uTime * 4.0);
+        c += g * 0.03;
         c *= 1.0 - uFade;
         gl_FragColor = vec4(c, 1.0);
       }`,
@@ -130,6 +169,66 @@ const World = (() => {
       stains(g, w, h, 10, 'rgba(15,20,25,0.35)');
       g.strokeStyle = 'rgba(10,10,10,0.5)'; g.beginPath(); g.moveTo(20, 40); g.lineTo(90, 110); g.lineTo(130, 120); g.lineTo(210, 220); g.stroke();
     }, [2, 2]),
+    // 斑驳的灰白墙（参考图一卧室）：大块灰色笔触 + 霉斑 + 剥落
+    plaster: canvasTex(512, 512, (g, w, h) => {
+      g.fillStyle = '#a7a8a2'; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 320; i++) {
+        const x = Math.random() * w, y = Math.random() * h, L = 30 + Math.random() * 90, a = Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+        const v = 130 + Math.random() * 60;
+        g.strokeStyle = `rgba(${v},${v + 2},${v - 4},${0.10 + Math.random() * 0.14})`;
+        g.lineWidth = 6 + Math.random() * 16; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke();
+      }
+      stains(g, w, h, 10, 'rgba(60,62,55,0.22)');
+      stains(g, w, h, 5, 'rgba(110,95,60,0.18)');
+      const grd = g.createLinearGradient(0, h, 0, h * 0.55); grd.addColorStop(0, 'rgba(40,40,36,0.45)'); grd.addColorStop(1, 'rgba(40,40,36,0)');
+      g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    }, [1, 1]),
+    // 六边形墙纸（参考图一中间房间）：深蓝底 + 灰白六边形描边
+    hexpaper: canvasTex(512, 512, (g, w, h) => {
+      g.fillStyle = '#323a4c'; g.fillRect(0, 0, w, h);
+      const R = 64, dx = R * Math.sqrt(3), dy = R * 1.5;
+      g.lineWidth = 9; g.strokeStyle = '#6f7686';
+      for (let row = -1; row * dy < h + R; row++) for (let col = -1; col * dx < w + R; col++) {
+        const cx = col * dx + (row % 2 ? dx / 2 : 0), cy = row * dy;
+        g.beginPath();
+        for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; g.lineTo(cx + Math.cos(a) * R * 0.82, cy + Math.sin(a) * R * 0.82); }
+        g.closePath(); g.stroke();
+        g.lineWidth = 3; g.strokeStyle = 'rgba(160,165,175,0.35)';
+        g.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; g.lineTo(cx + Math.cos(a) * R * 0.6, cy + Math.sin(a) * R * 0.6); } g.closePath(); g.stroke();
+        g.lineWidth = 9; g.strokeStyle = '#6f7686';
+      }
+      // 手绘不均匀：涂抹一层随机深浅
+      for (let i = 0; i < 160; i++) { const v = Math.random() > 0.5 ? 255 : 0; g.fillStyle = `rgba(${v},${v},${v},0.035)`; g.fillRect(Math.random() * w, Math.random() * h, 30 + Math.random() * 60, 30 + Math.random() * 60); }
+      stains(g, w, h, 6, 'rgba(10,10,14,0.35)');
+    }, [1, 1]),
+    // 黑白马赛克地砖（参考图一、三）：小方砖 + 每隔几块的深色点缀 + 污渍
+    mosaic: canvasTex(512, 512, (g, w, h) => {
+      g.fillStyle = '#4a4d4a'; g.fillRect(0, 0, w, h);
+      const S = 12;
+      for (let y = 0; y < h; y += S) for (let x = 0; x < w; x += S) {
+        const i = x / S, j = y / S;
+        const dark = (i % 4 === 0 && j % 4 === 0);
+        const v = dark ? 78 + Math.random() * 18 : 158 + Math.random() * 26;
+        g.fillStyle = `rgb(${v - 4},${v},${v - 6})`;
+        g.fillRect(x + 1, y + 1, S - 2, S - 2);
+      }
+      stains(g, w, h, 12, 'rgba(60,50,30,0.28)');
+      stains(g, w, h, 6, 'rgba(20,20,20,0.30)');
+    }, [2, 2]),
+    // 棋盘格地砖（厨房，参考图三）
+    checker: canvasTex(256, 256, (g, w, h) => {
+      const S = 32;
+      for (let y = 0; y < h; y += S) for (let x = 0; x < w; x += S) {
+        const on = ((x + y) / S) % 2 === 0;
+        if (on) { const v = 170 + Math.random() * 18; g.fillStyle = `rgb(${v},${v - 6},${v - 22})`; }
+        else { const v = 62 + Math.random() * 12; g.fillStyle = `rgb(${v - 6},${v + 2},${v - 4})`; }
+        g.fillRect(x, y, S, S);
+      }
+      g.strokeStyle = 'rgba(30,28,24,0.5)'; g.lineWidth = 1;
+      for (let i = 0; i <= w; i += S) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, h); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(w, i); g.stroke(); }
+      stains(g, w, h, 8, 'rgba(70,55,30,0.3)');
+    }, [3, 3]),
     // 地下室地面：赭褐色水泥，大块油画笔触 + 水渍 + 裂缝
     cellar: canvasTex(512, 512, (g, w, h) => {
       g.fillStyle = '#4a3c2e'; g.fillRect(0, 0, w, h);
@@ -226,13 +325,15 @@ const World = (() => {
   }
 
   // ---------- 灯光 ----------
-  const hemi = new THREE.HemisphereLight(0xc8a27a, 0x1a120c, 0.32);
+  const hemi = new THREE.HemisphereLight(0x8a9aa8, 0x14110e, 0.22);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xe8c49a, 0.55);
-  sun.position.set(-14, 20, -10);
+  // 窗光：从玻璃幕墙外斜照进来，冷白偏青，低角度拉出长影子（参考图一左侧）
+  const sun = new THREE.DirectionalLight(0xdfe8ee, 1.25);
+  sun.position.set(10, 8, 15);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 12, bottom: -12, near: 1, far: 60 });
+  sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02; sun.shadow.radius = 2.5;
   scene.add(sun);
 
   const root = new THREE.Group(); scene.add(root);
@@ -241,14 +342,14 @@ const World = (() => {
   // 后排 z[-6,0]：卧室 x[-12,-6] | 客厅 x[-6,1] | 厨房 x[1,6] | 阳台 x[6,10]
   // 前排 z[0,6]：设备间 x[-12,-6]（下沉）| 储物间 x[-6,-2] | 玄关 x[-2,4] | 浴室 x[4,10]
   const ROOMS = {
-    bedroom: { name: '卧室', x0: -12, x1: -6, z0: -6, z1: 0, y: 0, floor: 0xb89878, tex: 'wood' },
-    living: { name: '客厅', x0: -6, x1: 1, z0: -6, z1: 0, y: 0, floor: 0xa98a6c, tex: 'wood' },
-    kitchen: { name: '厨房', x0: 1, x1: 6, z0: -6, z1: 0, y: 0, floor: 0xc8bea6, tex: 'tile' },
+    bedroom: { name: '卧室', x0: -12, x1: -6, z0: -6, z1: 0, y: 0, floor: 0x9a8670, tex: 'wood', wall: 'plaster' },
+    living: { name: '客厅', x0: -6, x1: 1, z0: -6, z1: 0, y: 0, floor: 0xffffff, tex: 'mosaic', wall: 'hexpaper' },
+    kitchen: { name: '厨房', x0: 1, x1: 6, z0: -6, z1: 0, y: 0, floor: 0xffffff, tex: 'checker', wall: 'plaster' },
     balcony: { name: '阳台', x0: 6, x1: 10, z0: -6, z1: 0, y: 0, floor: 0x9a9184, tex: 'concrete' },
     plant: { name: '楼下设备间', x0: -12, x1: -6, z0: 0, z1: 6, y: -1.4, floor: 0xffffff, tex: 'cellar' },
-    storage: { name: '储物间', x0: -6, x1: -2, z0: 0, z1: 6, y: 0, floor: 0x8c7258, tex: 'wood' },
-    entry: { name: '玄关', x0: -2, x1: 4, z0: 0, z1: 6, y: 0, floor: 0x8c7258, tex: 'wood' },
-    bath: { name: '浴室', x0: 4, x1: 10, z0: 0, z1: 6, y: 0, floor: 0xc9c2ac, tex: 'tile' },
+    storage: { name: '储物间', x0: -6, x1: -2, z0: 0, z1: 6, y: 0, floor: 0x7c6650, tex: 'wood', wall: 'plaster' },
+    entry: { name: '玄关', x0: -2, x1: 4, z0: 0, z1: 6, y: 0, floor: 0x7c6650, tex: 'wood', wall: 'plaster' },
+    bath: { name: '浴室', x0: 4, x1: 10, z0: 0, z1: 6, y: 0, floor: 0xffffff, tex: 'mosaic', wall: 'plaster' },
   };
   const floors = [];
   const WALL = 0xb8a68c, H = 3.2;
@@ -274,7 +375,11 @@ const World = (() => {
   function wall(parent, x0, z0, x1, z1, h, y, gaps, style) {
     y = y || 0; gaps = gaps || [];
     const cellar = style === 'cellar';
-    const wallMap = cellar ? TEX.peel : TEX.wallpaper, wallCol = cellar ? 0xffffff : WALL;
+    const rk = Object.keys(roomRoot).find(k => roomRoot[k] === parent);
+    const roomWall = rk && ROOMS[rk].wall;
+    const wallMap = cellar ? TEX.peel : (roomWall ? TEX[roomWall] : TEX.wallpaper);
+    const wallCol = cellar || roomWall ? 0xffffff : WALL;
+    const ownMap = cellar || !!roomWall;   // 大图贴图按墙长平铺，不拉伸
     const horiz = z0 === z1;
     const len = horiz ? x1 - x0 : z1 - z0;
     let segs = [[0, len]];
@@ -290,9 +395,9 @@ const World = (() => {
       const mid = (s + e) / 2, l = e - s;
       const px = horiz ? x0 + mid : x0, pz = horiz ? z0 : z0 + mid;
       const wm = box(wg, horiz ? l : 0.14, h, horiz ? 0.14 : l, wallCol, px, y, pz, { map: wallMap });
-      if (cellar) { wm.material = wm.material.clone(); wm.material.map = wallMap.clone(); wm.material.map.needsUpdate = true; wm.material.map.repeat.set(l / 3, h / 3); }
+      if (ownMap) { wm.material = wm.material.clone(); wm.material.map = wallMap.clone(); wm.material.map.needsUpdate = true; wm.material.map.repeat.set(l / 3, h / 3); }
       const ix = horiz ? px : px + 0.09, iz = horiz ? pz + 0.09 : pz;
-      if (!cellar) {
+      if (!cellar && !roomWall) {
         box(wg, horiz ? l : 0.04, 0.95, horiz ? 0.04 : l, WAINSCOT, ix, y, iz, { map: TEX.wood, edges: false });
         box(wg, horiz ? l : 0.08, 0.05, horiz ? 0.08 : l, 0x2a1d14, ix, y + 0.95, iz, { edges: false });
       }
@@ -763,6 +868,28 @@ const World = (() => {
     ['deco_boxes', -4.2, 0, 5.2, '档案箱', [-4.2, 4.2]],
     ['deco_cardboard', -11.2, -1.4, 3.0, '纸箱堆', [-10.2, 3.0]],
     ['deco_shelf', -8.8, -1.4, 0.4, '铁架', [-8.8, 1.4]],
+    // ---- 极乐迪斯科式布景 ----
+    // 卧室：暖气片、扶手椅、散落衣物、酒瓶、壁灯
+    ['de_radiator', -8.4, 0, -5.82, '暖气片', [-8.4, -4.8]],
+    ['de_armchair2', -11.1, 0, -5.0, '旧皮扶手椅', [-10.2, -4.9]],
+    ['de_laundry', -8.9, 0, -1.2, '一堆衣服', [-8.9, -2.2]],
+    ['de_bottles', -7.0, 0, -1.0, '空酒瓶', [-7.0, -1.9]],
+    ['de_walllamp', -11.86, 0, -3.6, '壁灯', [-11.0, -3.6]],
+    // 客厅：地毯、芥末色扶手椅、落地灯、吊扇、磁带机、书架
+    ['de_rug', -2.4, 0, -2.7, '旧地毯', [-2.4, -1.4]],
+    ['de_armchair', -0.4, 0, -3.3, '芥末色扶手椅', [0.3, -2.4]],
+    ['de_floorlamp', 0.5, 0, -4.4, '落地灯', [0.0, -3.7]],
+    ['de_ceilfan', -2.6, 0, -3.0, '吊扇', [-2.6, -1.6]],
+    ['de_reeltape', -4.3, 0, -5.6, '磁带机', [-4.3, -4.6]],
+    ['de_bookshelf', -5.8, 0, -4.5, '书架', [-5.0, -4.5]],
+    // 储物间：书桌、成堆的旧椅子
+    ['de_desk', -4.6, 0, 5.5, '旧书桌', [-4.6, 4.6]],
+    ['de_chairs', -2.55, 0, 5.4, '叠起来的折叠椅', [-3.3, 4.8]],
+    // 玄关：挂衣架
+    ['de_coatrack', 2.4, 0, 0.18, '挂衣钩', [2.4, 1.1]],
+    // 地下室：锅炉、碎砖堆
+    ['de_boiler', -11.3, -1.4, 0.75, '锅炉', [-10.4, 0.9]],
+    ['de_debris', -10.2, -1.4, 5.3, '碎砖', [-10.2, 4.4]],
   ];
   DECOS.forEach(([id, x, y, z, label, stand]) => {
     const g = group(x, y, z);
@@ -879,6 +1006,9 @@ const World = (() => {
     renderer.setSize(r.width, r.height, false);
     composer.setPixelRatio(renderer.getPixelRatio());
     composer.setSize(r.width, r.height);
+    const pr = renderer.getPixelRatio();
+    paint.uniforms.uRes.value.set(r.width * pr, r.height * pr);
+    paint.uniforms.uR.value = Math.max(2.0, Math.min(4.5, r.height * pr / 300));
     viewAspect = r.width / Math.max(1, r.height);
     camera.right = camera.top * viewAspect; camera.left = -camera.right;
     camera.updateProjectionMatrix();
@@ -1258,7 +1388,7 @@ const World = (() => {
     const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), bulbMat);
     bulb.position.set(x, top - 0.18, z); root.add(bulb);
-    const cone = lightCone(root, x, top - 0.25, z, 0.3, 1.9, top - 0.25 - r.y, 0xffc477, 0.12);
+    const cone = lightCone(root, x, top - 0.25, z, 0.25, 1.5, top - 0.25 - r.y, 0xffb35c, 0.10);
     roomLights[k] = { l, bulbMat, cone, fixture: [cord, shade, bulb], base: 0.5, flicker: k === 'storage' || k === 'plant' };
   });
 
@@ -1267,6 +1397,23 @@ const World = (() => {
   moon.position.set(8.0, 3.2, -8); moon.target.position.set(7.0, 0, -1.5);
   moon.castShadow = true; moon.shadow.mapSize.set(512, 512);
   root.add(moon); root.add(moon.target);
+  // 玻璃幕墙进光：每格玻璃前一道斜光柱（加色、带渐隐），落在地上的亮斑交给阴影贴图
+  const shaftMat = new THREE.MeshBasicMaterial({ color: 0xcfe0e6, map: coneTex, transparent: true, opacity: 0.075, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const shafts = new THREE.Group(); root.add(shafts);
+  for (let x = -5.5; x < 9.8; x += 1.2) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 4.2), shaftMat);
+    m.position.set(x - 0.6, 1.5, 5.0); m.rotation.set(-0.95, 0.35, 0); shafts.add(m);
+  }
+  for (let z = -5.5; z < 5.8; z += 1.2) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 4.2), shaftMat);
+    m.position.set(9.0, 1.5, z - 0.4); m.rotation.set(0, Math.PI / 2, 0.95); shafts.add(m);
+  }
+  // 室内雾气：一层很淡的冷色体积雾，贴着地面，让光柱和远处家具发灰（参考图一的空气感）
+  const hazeMat = new THREE.MeshBasicMaterial({ color: 0x9fb0b8, transparent: true, opacity: 0.045, depthWrite: false, blending: THREE.AdditiveBlending });
+  for (let i = 0; i < 3; i++) {
+    const h = new THREE.Mesh(new THREE.PlaneGeometry(22, 12), hazeMat);
+    h.rotation.x = -Math.PI / 2; h.position.set(-1, 0.4 + i * 0.6, 0); h.renderOrder = 4; root.add(h);
+  }
   const moonBeam = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 6.5), new THREE.MeshBasicMaterial({ color: 0xd9a86a, map: coneTex, transparent: true, opacity: 0.10, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
   moonBeam.position.set(7.6, 1.4, -3.2); moonBeam.rotation.set(-1.0, 0, 0); root.add(moonBeam);
 
@@ -1285,13 +1432,16 @@ const World = (() => {
     // m: { focus: roomKey, night: bool, alarm: bool }
     focusRoom = m.focus;
     Object.entries(roomLights).forEach(([k, L]) => {
-      const col = m.alarm ? 0xff3b2a : (k === 'plant' ? 0xffa250 : (k === m.focus ? 0xffc477 : 0xd6a878));
+      const col = m.alarm ? 0xff3b2a : (k === 'plant' ? 0xffa250 : (k === m.focus ? 0xffb35c : 0xe0a060));
       L.l.color.set(col); L.bulbMat.color.set(col); L.cone.material.color.set(col);
       L.base = k === m.focus ? 2.6 : (m.night ? 0.45 : 0.8);
       L.cone.material.opacity = k === m.focus ? 0.22 : 0.07;
     });
-    hemi.intensity = m.night ? 0.42 : 0.55;
-    sun.intensity = m.night ? 0.3 : 0.45;
+    // 夜里窗外是城市的冷光，白天是阴天的灰白光；都从玻璃幕墙照进来
+    hemi.intensity = m.night ? 0.16 : 0.26;
+    sun.intensity = m.night ? 0.95 : 1.55;
+    sun.color.set(m.night ? 0xa8c0d4 : 0xe6ecef);
+    shaftMat.opacity = m.night ? 0.05 : 0.085;
     moon.intensity = m.night ? 2.2 : 1.6;
     alarm = m.alarm ? 1 : 0;
   }
@@ -1304,6 +1454,7 @@ const World = (() => {
   function degrade() {
     if (degraded) return; degraded = true;
     bloom.enabled = false;
+    paint.uniforms.uR.value = 2.0;
     renderer.setPixelRatio(1); resize();
   }
   if (LITE) degrade();
