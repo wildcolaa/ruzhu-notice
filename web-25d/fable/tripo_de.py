@@ -51,7 +51,21 @@ ASSETS = {
     "de_debris": "a pile of broken bricks, plaster chunks and dust on the floor",
     "de_boiler": "an old rusty cylindrical water boiler with pipes and a pressure gauge",
     "de_chairs": "a stack of three old folding metal cafe chairs leaning together",
+    # ---- 储物间（参考极乐迪斯科截图：堆起来的旧家具、床单、倒地吊扇、人体模型腿）----
+    # 元组 = (prompt, negative_prompt)：成堆的物件不能用默认的 "multiple objects" 负面词
+    "st_armpile": ("two battered brown leather armchairs stacked, the top armchair flipped upside down "
+                   "resting on the seat of the bottom one, cracked faded leather, sagging cushions", "PILE"),
+    "st_linen": ("a large messy heap of crumpled grey-white bed sheets, a stained duvet and three "
+                 "white pillows dumped on the floor", "PILE"),
+    "st_fan": "a broken ceiling fan lying on its side on the floor, four long wooden blades, one blade bent, brass motor housing, dangling wire",
+    "st_door": "an old wooden interior door panel lying flat, peeling pale grey-blue paint, water stains, no handle",
+    "st_mannequin": ("a pair of detached wooden artist mannequin legs lying on the floor, tan varnished wood, "
+                     "hip joint and knees, one leg crossed over the other", "PILE"),
+    "st_tools": "a dented old grey-green metal tool cabinet, one door hanging half open, a crowbar and rusty tools inside, peeling paint",
+    "st_radiator": "a tall old cast iron column radiator, cream paint peeling, rust at the valves, standing on short feet",
 }
+# 成堆的物件：去掉 "multiple objects"
+NEG_PILE = NEG.replace("multiple objects, ", "")
 
 
 def call(method, path, body=None):
@@ -65,10 +79,12 @@ def call(method, path, body=None):
 
 
 def submit(asset_id):
+    v = ASSETS[asset_id]
+    prompt, neg = (v[0], NEG_PILE if v[1] == "PILE" else v[1]) if isinstance(v, tuple) else (v, NEG)
     return call("POST", "/task", {
         "type": "text_to_model",
-        "prompt": f"{ASSETS[asset_id]}, {STYLE}",
-        "negative_prompt": NEG,
+        "prompt": f"{prompt}, {STYLE}",
+        "negative_prompt": neg,
         "texture": True, "pbr": False, "texture_quality": "detailed", "face_limit": 8000,
     })["data"]["task_id"]
 

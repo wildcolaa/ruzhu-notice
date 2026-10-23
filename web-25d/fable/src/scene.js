@@ -364,7 +364,7 @@ const World = (() => {
 
   const DOOR_WOOD = 0x4a3020, DOOR_PANEL = 0x6b4a32;
   // 门铰链放哪一端：避开门旁靠墙的家具（门开到贴墙时会占住铰链那一侧 1.4m 的墙面）
-  const HINGE_B = new Set(['-4,0', '-6,-2', '-6,3']);
+  const HINGE_B = new Set(['-6,-2', '-6,3']);
   function doorHinge(horiz, x0, z0, a, b) {
     const m = (a + b) / 2, cx = horiz ? x0 + m : x0, cz = horiz ? z0 : z0 + m;
     return HINGE_B.has(Math.round(cx) + ',' + Math.round(cz));
@@ -717,9 +717,10 @@ const World = (() => {
   const dock = group(-5.55, 0, 5.6);
   box(dock, 0.6, 0.2, 0.3, 0x2b3236, 0, 0, 0);
   reg('dock', dock, '扫地机充电座', [-5.0, 5.0]);
-  const tools = group(-2.65, 0, 0.85);
-  box(tools, 0.7, 1.6, 0.9, 0x6b5a48, 0, 0, 0);
-  reg('tools', tools, '旧工具柜', [-3.6, 0.9]);
+  // 工具柜靠东墙，柜门朝西（Tripo 模型 st_tools 套在这个方块组上）
+  const tools = group(-2.4, 0, 0.85); tools.rotation.y = -Math.PI / 2;
+  box(tools, 0.9, 1.5, 0.6, 0x6b5a48, 0, 0, 0);
+  reg('tools', tools, '旧工具柜', [-3.3, 0.85]);
   const shard = group(-3.0, 0, 4.6);
   box(shard, 0.22, 0.04, 0.12, 0xb0b4b8, 0, 0, 0, { emissive: 0x3a3a3a });
   reg('shard', shard, '金属碎片', [-3.0, 3.8]);
@@ -734,13 +735,11 @@ const World = (() => {
       m.rotation.set(-Math.PI / 2 + (i % 3 - 1) * 0.06, 0, r); m.position.set(x, 0.012 + i * 0.0006, z); m.receiveShadow = true;
       S.add(m);
     });
-    // 一块从墙上卸下来的旧门板 / 搁板，斜躺在地上（参考图中间那块）
-    const board = box(S, 1.5, 0.04, 0.62, 0x8c8a80, 0, 0, 0, { map: TEX.wood });
-    board.position.set(-3.75, 0.05, 2.75); board.rotation.set(0.05, 0.42, 0.03);
+    // 散落的木条（门板换成 Tripo 模型 st_door）
     const plank = box(S, 1.1, 0.03, 0.14, 0x6b4a32, 0, 0, 0, { map: TEX.wood });
     plank.position.set(-4.3, 0.03, 3.5); plank.rotation.y = -0.7;
     // 枕头：压扁的白色软包
-    [[-4.7, 2.0, 0.4], [-4.95, 1.9, -0.6], [-3.1, 4.3, 0.9]].forEach(([x, z, r]) => {
+    [[-3.1, 4.3, 0.9]].forEach(([x, z, r]) => {
       const p = sphere(S, 0.22, 0xa8a49a, x, 0.1, z); p.scale.set(1.25, 0.42, 0.85); p.rotation.y = r;
     });
     // 倒在地上的空瓶
@@ -915,13 +914,14 @@ const World = (() => {
     ['de_bookshelf', -5.8, 0, -4.5, '书架', [-5.0, -4.5]],
     // 储物间（参考极乐迪斯科：堆起来的扶手椅、床单枕头、掉下来的吊扇、满地杂物）
     // 第 7 项可选：[rx, ry, rz] 整组旋转
-    ['st_radiator', -5.4, 0, 0.14, '暖气片', [-4.6, 1.2]],
-    ['st_arm1', -5.45, 0, 0.7, '旧皮扶手椅', [-4.6, 1.2], [0, 0.25, 0]],
-    ['st_arm2', -5.42, 1.86, 0.76, '倒扣的扶手椅', [-4.6, 1.2], [0.12, -0.5, Math.PI]],
-    ['st_sheets', -5.35, 0, 1.5, '一堆床单和枕头', [-4.6, 1.6], [0, 0.15, 0]],
-    ['deco_filing', -2.6, 0, 1.65, '文件柜', [-3.4, 1.7]],
+    ['st_armpile', -5.4, 0, 0.72, '叠在一起的旧皮扶手椅', [-4.5, 1.0], [0, 0.12, 0]],
+    ['st_radiator', -2.8, 0, 0.14, '暖气片', [-3.0, 1.3]],
+    ['st_linen', -5.42, 0, 1.42, '一堆床单和枕头', [-4.5, 1.6], [0, 0.4, 0]],
+    ['deco_filing', -2.55, 0, 1.75, '文件柜', [-3.3, 1.75]],
+    ['st_door', -3.75, 0, 2.75, '卸下来的旧门板', [-3.75, 1.7], [0, 1.15, 0]],
+    ['st_mannequin', -4.0, 0, 1.65, '人体模型的腿', [-4.0, 2.3], [0, 0.2, 0]],
     ['st_bottles', -5.4, 0, 5.1, '空酒瓶', [-4.9, 4.7]],
-    ['st_fan', -4.95, 0.02, 4.45, '掉下来的吊扇', [-4.4, 3.8], [0.22, 0.6, -0.12]],
+    ['st_fan', -3.65, 0, 4.5, '掉下来的吊扇', [-3.7, 3.7], [0, 0.6, 0]],
     ['de_desk', -4.45, 0, 5.55, '旧书桌', [-4.4, 4.9]],
     ['deco_boxes', -3.35, 0, 5.55, '档案箱', [-3.45, 4.8]],
     ['st_sheets2', -2.45, 0, 4.55, '团成一团的旧窗帘', [-3.1, 3.9]],
@@ -1141,10 +1141,11 @@ const World = (() => {
       if (dd < bd) { bd = dd; best = [a, b]; }
     });
     if (best && bd < 2.5) { d.rooms = best; d.locked = () => lockedRooms.has(best[0]) || lockedRooms.has(best[1]); }
-    // 地下室门只往储物间一侧开（另一侧是下楼台阶的扶手）
-    if (best && best.includes('plant')) d.fixedDir = 1;
-    // 储物间的另外两扇门往外开（客厅 / 玄关一侧），储物间里四面墙都能堆杂物
-    if (best && best.includes('storage') && !best.includes('plant')) d.fixedDir = 1;
+    // 固定开门方向（dir：横墙 1 = 往 -Z 开，竖墙 1 = 往 +X 开）。门板全开时贴墙的位置不能互相重叠、不能穿墙：
+    // 地下室门往储物间开（另一侧是台阶扶手）；储物间另两扇门往外开，储物间四面墙都能堆杂物；
+    // 客厅↔玄关门往客厅开（往玄关开会穿过储物间东墙）；卧室门往卧室开（给储物间北门的门板让位）
+    const FIXED = { 'storage-plant': 1, 'living-storage': 1, 'entry-storage': 1, 'living-entry': 1, 'living-bedroom': -1 };
+    if (best) d.fixedDir = FIXED[best.join('-')] || FIXED[best[1] + '-' + best[0]];
   });
   // ---------- 出口：门口地面一圈很淡的光，点击走到隔壁房间（门本身就是主要提示）----------
   const exits = [];
@@ -1206,7 +1207,7 @@ const World = (() => {
   const WM = 0.36, PR = 0.26, ROBOT_R = 0.32;
   // 楼梯两侧：只能从梯子两头上下
   const STAIR_SIDES = [{ x0: -8.3, x1: -6.0, z0: 1.9, z1: 2.0 }, { x0: -8.3, x1: -6.0, z0: 3.6, z1: 3.7 }];
-  const NO_COLLIDE = new Set(['robot', 'shard', 'scratch', 'status', 'city', 'home', 'ac']);
+  const NO_COLLIDE = new Set(['st_door', 'robot', 'shard', 'scratch', 'status', 'city', 'home', 'ac']);
   let colliders = [];
   function chainVisible(o, stop) {
     for (let p = o; p && p !== stop; p = p.parent) if (!p.visible) return false;

@@ -63,12 +63,15 @@ const Models = (() => {
     de_chairs: { size: [0.55, 1.0, 0.6], rotY: 0.5 },
     // ---- 储物间（参考极乐迪斯科：堆叠的旧扶手椅、床单枕头、掉在地上的吊扇）----
     // src：复用已有模型的数据，不额外生成 glb
-    st_arm1: { src: 'de_armchair2', size: [0.95, 0.95, 0.9], rotY: 0 },
-    st_arm2: { src: 'de_armchair', size: [0.85, 0.95, 0.85], rotY: 0 },
-    st_sheets: { src: 'de_laundry', size: [1.0, 0.4, 0.8], rotY: 0 },
+    // st_armpile..st_radiator：tripo_de.py 专为储物间生成；pre = 适配尺寸前先把模型转倒
+    st_armpile: { size: [0.95, 1.55, 0.85], rotY: 0 },
+    st_linen: { size: [0.85, 0.6, 0.75], rotY: 0 },
+    st_fan: { size: [1.0, 0.45, 0.85], rotY: 0, pre: [1.35, 0, 0.15] },
+    st_door: { size: [0.85, 0.06, 1.9], rotY: 0, flat: true, exact: true },
+    st_mannequin: { size: [1.05, 0.28, 0.55], rotY: 0 },
+    st_tools: { size: [0.9, 1.5, 0.6], rotY: 0, alias: 'tools' },
+    st_radiator: { size: [0.55, 0.95, 0.22], rotY: 0 },
     st_sheets2: { src: 'de_laundry', size: [0.85, 0.3, 0.6], rotY: 0.4 },
-    st_fan: { src: 'de_ceilfan', size: [0.95, 0.3, 0.95], rotY: 0 },
-    st_radiator: { src: 'de_radiator', size: [0.85, 0.7, 0.2], rotY: 0 },
     st_lamp: { src: 'de_walllamp', size: [0.28, 0.3, 0.28], rotY: 0, lift: 1.9, glow: 0xffd09a },
     st_bottles: { src: 'de_bottles', size: [0.45, 0.32, 0.35], rotY: 0 },
   };
@@ -193,12 +196,20 @@ const Models = (() => {
           if (thin === sz0.z) model.rotation.x = -Math.PI / 2;        // 立在 XY 平面
           else if (thin === sz0.x) model.rotation.z = Math.PI / 2;    // 立在 YZ 平面
         }
+        if (spec.pre) model.rotation.set(spec.pre[0], model.rotation.y + spec.pre[1], spec.pre[2]);
         stripGround(model);
         stylize(model, world.gradTex);
         const wrap = new THREE.Group();
         const inner = new THREE.Group(); inner.add(model); wrap.add(inner);
         const sz = spec.size || [1, 1, 1];
         fitToSize(inner, sz[0], sz[1], sz[2], spec.autoAlign);
+        if (spec.exact) {
+          // 按轴分别拉伸到目标尺寸（压扁过厚的模型，如平躺的门板）
+          const b = visBox(inner), s3 = b.getSize(new THREE.Vector3());
+          inner.scale.set(inner.scale.x * sz[0] / s3.x, inner.scale.y * sz[1] / s3.y, inner.scale.z * sz[2] / s3.z);
+          const b2 = visBox(inner), c2 = b2.getCenter(new THREE.Vector3());
+          inner.position.x -= c2.x; inner.position.z -= c2.z; inner.position.y -= b2.min.y;
+        }
         if (spec.lift) wrap.position.y += spec.lift;
         if (spec.glow) {
           const L = new THREE.PointLight(spec.glow, 1.1, 4.5, 1.8);
