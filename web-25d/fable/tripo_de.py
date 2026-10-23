@@ -66,6 +66,22 @@ ASSETS = {
     # ---- 吊灯（替换原来的几何吊灯，只放在部分房间）----
     "lamp_pendant": "an old enamel pendant ceiling lamp hanging from a short cord, dented dark green metal dome shade, warm glowing bulb, dusty",
     "lamp_bulb": "a single bare incandescent light bulb hanging from a long twisted black cord with a cracked bakelite socket, glowing",
+    # ---- 替换剩下的白膜（程序方块）物件 ----
+    "lamp": "a tall 1960s brass standard floor lamp with a pleated cream fabric shade, round heavy base, tarnished",
+    "notice": "a small worn square wooden dining table with four tapered legs, scratched varnish, a coffee ring stain",
+    "robot": "a round robot vacuum cleaner, scuffed dark grey plastic, a teal indicator light on top, low and flat",
+    "waste": "a dented metal kitchen pedal bin with a lid, cream enamel, rust spots",
+    "ac": "a slim wide wall-mounted split air conditioner indoor unit, long horizontal white rounded plastic casing yellowed with age, a thin louvre slot along the bottom, very shallow depth",
+    "pothos": "a pothos plant with long trailing vines in a cracked terracotta pot",
+    "water": "an automatic plant watering machine, a tall translucent plastic water tank on a small pump base with a thin hose",
+    "speaker": "a 1970s wooden hi-fi loudspeaker cabinet with a fabric grille, a small cylindrical smart speaker sitting on top",
+    "curtain": "a single heavy faded dark green velvet curtain panel hanging straight down in folds, frayed hem",
+    "locker": "a small old grey steel locker cabinet with a padlock on the door, dented, peeling paint",
+    "dock": "a small upright charging base for a robot vacuum, a low rectangular grey plastic block with a sloped front ramp and two metal charging contacts, a short power cord, no vacuum",
+    "status": "a small wall-mounted apartment intercom panel with a dark rectangular screen, old beige plastic, a speaker grille",
+    "counter": "a long old kitchen counter with lower cabinets and a steel sink, worn wood-grain laminate top, chipped doors",
+    "cel_sofa": "an old sagging mustard yellow fabric sofa with a stained red blanket thrown over one arm",
+    "cel_junk": ("a pile of damp cardboard boxes, a wooden crate and bundles of old newspapers tied with string", "PILE"),
 }
 # 成堆的物件：去掉 "multiple objects"
 NEG_PILE = NEG.replace("multiple objects, ", "")

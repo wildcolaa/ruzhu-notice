@@ -638,7 +638,7 @@ const World = (() => {
   // 须知桌：让开卧室门（x<-4.7）和储物间门（z>-1.3）
   const table = group(-4.15, 0, -1.95);
   box(table, 1.0, 0.72, 0.9, 0x8c6b4a, 0, 0, 0);
-  box(table, 0.42, 0.04, 0.3, 0xefe6d4, 0, 0.72, 0);
+  box(table, 0.42, 0.04, 0.3, 0xefe6d4, 0, 0.72, 0).userData.keep = true;   // 须知纸：模型替换后保留
   reg('notice', table, '《住户须知》', [-4.15, -1.0]);
 
   // 扫地机：会真实移动的设备
@@ -658,13 +658,13 @@ const World = (() => {
   const planScreen = screen(fridge, 0.7, 0.5, ['订单', '照常补货'], 0, 1.4, 0.46, 0, { size: 44 });
   led('fridge', fridge, 2.3);
   reg('fridge', fridge, '冰箱', [2.0, -4.0]);
-  const counter = group(4.4, 0, -5.4); counter.userData.solid = 'kitchen';
+  const counter = group(4.4, 0, -5.4); counter.userData.deco = true;
   box(counter, 2.6, 0.95, 0.9, 0xd8cdb8, 0, 0, 0);
-  box(counter, 2.7, 0.06, 1.0, 0x5c4e3d, 0, 0.95, 0, { edges: false });
+  reg('counter', counter, '料理台', [4.4, -4.4]);
   const binG = group(5.3, 0, -0.65);
   box(binG, 0.5, 0.6, 0.5, 0x6a6a64, 0, 0, 0);
   reg('waste', binG, '厨余废物盒', [4.5, -0.8]);
-  const acG = group(3.4, 2.6, -5.85);
+  const acG = group(3.4, 2.6, -5.78);
   box(acG, 1.3, 0.38, 0.28, 0xeeeae0, 0, 0, 0);
   led('ac', acG, 0.55);
   reg('ac', acG, '空调', [3.4, -4.2]);
@@ -696,15 +696,15 @@ const World = (() => {
   reg('city', win, '城市景观', [8.0, -4.6]);
 
   // 卧室：音箱、窗帘、私人储物、床
-  const bed = group(-10.4, 0, -4.2);
+  const bed = group(-10.4, 0, -3.85);
   box(bed, 2.2, 0.45, 1.6, 0x7b5a3e, 0, 0, 0); box(bed, 2.1, 0.2, 1.5, 0xefe6d4, 0, 0.45, 0);
-  reg('bed', bed, '床 · 休息', [-9.0, -3.0]);
-  const speaker = group(-7.4, 0, -5.5);
+  reg('bed', bed, '床 · 休息', [-9.0, -2.6]);
+  const speaker = group(-6.6, 0, -5.55);
   box(speaker, 0.4, 0.55, 0.4, 0x2a2f36, 0, 0.5, 0);
   box(speaker, 0.6, 0.5, 0.5, 0x6b4a22, 0, 0, 0);
   led('speaker', speaker, 1.2);
-  reg('speaker', speaker, '音箱', [-7.4, -4.2]);
-  const curtain = group(-11.9, 0, -2.0);
+  reg('speaker', speaker, '音箱', [-6.6, -4.5]);
+  const curtain = group(-11.84, 0, -2.0);
   box(curtain, 0.06, 2.6, 1.8, 0x445a52, 0, 0.2, 0);
   reg('curtain', curtain, '窗帘', [-11.0, -2.0]);
   const locker = group(-11.6, 0, -0.8);
@@ -718,7 +718,7 @@ const World = (() => {
   box(dock, 0.6, 0.2, 0.3, 0x2b3236, 0, 0, 0);
   reg('dock', dock, '扫地机充电座', [-5.0, 5.0]);
   // 工具柜靠东墙，柜门朝西（Tripo 模型 st_tools 套在这个方块组上）
-  const tools = group(-2.4, 0, 0.85); tools.rotation.y = -Math.PI / 2;
+  const tools = group(-2.45, 0, 0.85); tools.rotation.y = -Math.PI / 2;
   box(tools, 0.9, 1.5, 0.6, 0x6b5a48, 0, 0, 0);
   reg('tools', tools, '旧工具柜', [-3.3, 0.85]);
   const shard = group(-3.0, 0, 4.6);
@@ -754,7 +754,7 @@ const World = (() => {
   })();
 
   // 玄关：门锁、鞋柜、状态屏、门框撬痕
-  const door = group(1.0, 0, 0.1);
+  const door = group(1.0, 0, 0.16);
   box(door, 1.5, 2.5, 0.12, 0x5a3b2a, 0, 0, 0);
   sphere(door, 0.06, 0xc9842a, -0.5, 1.1, 0.1);
   const lockLed = sphere(door, 0.05, 0xc45c4a, -0.5, 1.5, 0.1, 0xc45c4a);
@@ -767,7 +767,7 @@ const World = (() => {
   box(statusScr, 0.55, 0.42, 0.06, 0x2e343b, 0, 1.4, 0);
   const camScreen = screen(statusScr, 0.46, 0.34, ['住户', '已确认'], 0, 1.61, 0.04, 0, { size: 46 });
   reg('status', statusScr, '状态屏', [2.6, 1.3]);
-  const shoes = group(-1.6, 0, 4.8);
+  const shoes = group(-1.45, 0, 4.8);
   box(shoes, 0.6, 0.9, 1.8, 0x9a7b58, 0, 0, 0);
   reg('shoes', shoes, '鞋柜', [-0.8, 4.8]);
 
@@ -776,7 +776,7 @@ const World = (() => {
   box(tub, 2.4, 0.75, 1.1, 0xf4f1ea, 0, 0, 0);
   box(tub, 2.1, 0.05, 0.85, 0x8fc3c8, 0, 0.62, 0, { edges: false });
   reg('tub', tub, '浴缸', [7.8, 2.4]);
-  const mirror = group(5.4, 0, 0.12);
+  const mirror = group(5.4, 0, 0.36);
   box(mirror, 1.0, 1.4, 0.08, 0x8c6b4a, 0, 1.0, 0);
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 1.2), new THREE.MeshToonMaterial({ color: 0x9fd6d0, emissive: new THREE.Color(0x2a6b66), emissiveIntensity: 0.6, gradientMap: gradTex }));
   glass.position.set(0, 1.7, 0.05); glass.userData.keep = true; mirror.add(glass);
@@ -785,14 +785,14 @@ const World = (() => {
   reg('mirror', mirror, '浴室镜面', [5.4, 1.4]);
 
   // 楼下设备间：备用电力、楼内旧广播
-  const power = group(-10.6, -1.4, 1.2);
+  const power = group(-10.3, -1.4, 1.2);
   box(power, 1.2, 1.6, 0.7, 0x3a4a3e, 0, 0, 0);
   for (let i = 0; i < 4; i++) box(power, 0.18, 0.18, 0.04, 0xc9842a, -0.4 + i * 0.27, 1.0, 0.36, { edges: false, emissive: 0x3a2808 });
   reg('power', power, '备用电力', [-10.0, 2.2]);
-  const radio = group(-7.6, -1.4, 4.8);
+  const radio = group(-6.9, -1.4, 4.9);
   box(radio, 1.2, 0.8, 0.6, 0x6b4a22, 0, 0, 0);
   cyl(radio, 0.04, 0.9, 0x2a2118, 0.4, 0.8, 0, 6);
-  reg('radio', radio, '楼内旧广播', [-7.6, 3.6]);
+  reg('radio', radio, '楼内旧广播', [-6.9, 4.0]);
   const echo = group(-10.8, -1.4, 4.6);
   box(echo, 0.9, 1.4, 0.7, 0x4a3d33, 0, 0, 0);
   const echoEye = sphere(echo, 0.09, 0x401a17, 0.3, 1.1, 0.36, 0x200808);
@@ -837,18 +837,20 @@ const World = (() => {
     const hi = new THREE.Mesh(new THREE.CircleGeometry(1, 20), puddleHi); hi.scale.set(rx * 0.55, rz * 0.4, 1); hi.rotation.x = -Math.PI / 2; hi.position.set(x + rx * 0.2, CY + 0.014, z - rz * 0.2); CEL.add(hi);
   });
   // 旧沙发：塌陷的芥末色布沙发，一块毯子搭在扶手上
-  const sofaC = new THREE.Group(); sofaC.position.set(-8.4, CY, 5.35); CEL.add(sofaC); sofaC.userData.solid = 'plant';
+  const sofaC = new THREE.Group(); sofaC.position.set(-8.4, CY, 5.35); CEL.add(sofaC); sofaC.userData.deco = true;
   box(sofaC, 1.7, 0.42, 0.8, 0x7a6436, 0, 0, 0, { edges: false });
   box(sofaC, 1.7, 0.5, 0.22, 0x6e5a30, 0, 0.42, 0.29, { edges: false });
   box(sofaC, 0.22, 0.3, 0.8, 0x6a552c, -0.74, 0.42, 0, { edges: false });
   box(sofaC, 0.22, 0.3, 0.8, 0x6a552c, 0.74, 0.42, 0, { edges: false });
   box(sofaC, 0.5, 0.06, 0.82, 0x6a3a2c, 0.6, 0.72, 0, { edges: false });
+  reg('cel_sofa', sofaC, '旧沙发', [-8.4, 4.4]);
   // 纸箱、木箱、成捆旧报纸
-  const junk = new THREE.Group(); junk.position.set(-6.9, CY, 0.7); CEL.add(junk); junk.userData.solid = 'plant';
+  const junk = new THREE.Group(); junk.position.set(-6.9, CY, 0.7); CEL.add(junk); junk.userData.deco = true;
   box(junk, 0.7, 0.55, 0.6, 0x8a6a44, 0, 0, 0, { edges: false });
   box(junk, 0.55, 0.45, 0.5, 0x7a5c3a, 0.05, 0.55, 0.02, { edges: false });
   box(junk, 0.6, 0.18, 0.45, 0xb9ab8a, -0.6, 0, 0.1, { edges: false });
   box(junk, 0.6, 0.18, 0.45, 0xa89a78, -0.62, 0.18, 0.08, { edges: false });
+  reg('cel_junk', junk, '受潮的纸箱和旧报纸', [-6.9, 1.6]);
   // 散落的纸
   const paperMat = new THREE.MeshLambertMaterial({ color: 0xcfc2a0 });
   for (let i = 0; i < 9; i++) {
@@ -904,14 +906,14 @@ const World = (() => {
     ['de_armchair2', -11.1, 0, -5.0, '旧皮扶手椅', [-10.2, -4.9]],
     ['de_laundry', -8.9, 0, -1.2, '一堆衣服', [-8.9, -2.2]],
     ['de_bottles', -7.0, 0, -1.0, '空酒瓶', [-7.0, -1.9]],
-    ['de_walllamp', -11.86, 0, -3.6, '壁灯', [-11.0, -3.6]],
+    ['de_walllamp', -11.77, 0, -3.6, '壁灯', [-11.0, -3.6]],
     // 客厅：地毯、芥末色扶手椅、落地灯、吊扇、磁带机、书架
     ['de_rug', -2.4, 0, -2.7, '旧地毯', [-2.4, -1.4]],
     ['de_armchair', 0.0, 0, -3.4, '芥末色扶手椅', [0.3, -2.4]],
     ['de_floorlamp', 0.5, 0, -4.4, '落地灯', [0.0, -3.7]],
     ['de_ceilfan', -2.6, 0, -3.0, '吊扇', [-2.6, -1.6]],
     ['de_reeltape', -4.3, 0, -5.6, '磁带机', [-4.3, -4.6]],
-    ['de_bookshelf', -5.8, 0, -4.5, '书架', [-5.0, -4.5]],
+    ['de_bookshelf', -5.72, 0, -4.5, '书架', [-5.0, -4.5], [0, Math.PI / 2, 0]],
     // 吊灯（Tripo 模型，挂在 LAMP_POS 的位置，与 PENDANT_ROOMS 对应）
     ['lamp_pendant', 3.6, 0, -3.2, '吊灯', [3.6, -2.4]],
     ['lamp_pendant2', 1.0, 0, 3.0, '吊灯', [1.0, 2.2]],
@@ -920,23 +922,23 @@ const World = (() => {
     // 储物间（参考极乐迪斯科：堆起来的扶手椅、床单枕头、掉下来的吊扇、满地杂物）
     // 第 7 项可选：[rx, ry, rz] 整组旋转
     ['st_armpile', -5.4, 0, 0.72, '叠在一起的旧皮扶手椅', [-4.5, 1.0], [0, 0.12, 0]],
-    ['st_radiator', -2.8, 0, 0.14, '暖气片', [-3.0, 1.3]],
-    ['st_linen', -5.42, 0, 1.42, '一堆床单和枕头', [-4.5, 1.6], [0, 0.4, 0]],
+    ['st_radiator', -2.8, 0, 0.21, '暖气片', [-3.0, 1.3]],
+    ['st_linen', -5.45, 0, 1.6, '一堆床单和枕头', [-4.5, 1.6]],
     ['deco_filing', -2.55, 0, 1.75, '文件柜', [-3.3, 1.75]],
     ['st_door', -3.75, 0, 2.75, '卸下来的旧门板', [-3.75, 1.7], [0, 1.15, 0]],
     ['st_mannequin', -4.0, 0, 1.65, '人体模型的腿', [-4.0, 2.3], [0, 0.2, 0]],
     ['st_bottles', -5.4, 0, 5.1, '空酒瓶', [-4.9, 4.7]],
-    ['st_fan', -3.65, 0, 4.5, '掉下来的吊扇', [-3.7, 3.7], [0, 0.6, 0]],
+    ['st_fan', -4.3, 0, 4.3, '掉下来的吊扇', [-3.7, 3.7], [0, 0.6, 0]],
     ['de_desk', -4.45, 0, 5.55, '旧书桌', [-4.4, 4.9]],
     ['deco_boxes', -3.35, 0, 5.55, '档案箱', [-3.45, 4.8]],
-    ['st_sheets2', -2.45, 0, 4.55, '团成一团的旧窗帘', [-3.1, 3.9]],
+    ['st_sheets2', -2.55, 0, 4.45, '团成一团的旧窗帘', [-3.1, 3.9]],
     ['de_chairs', -2.45, 0, 5.35, '叠起来的折叠椅', [-3.0, 5.0]],
-    ['st_lamp', -2.12, 0, 4.7, '壁灯', [-2.8, 4.6], [0, -Math.PI / 2, 0]],
+    ['st_lamp', -2.2, 0, 4.7, '壁灯', [-2.8, 4.6], [0, -Math.PI / 2, 0]],
     // 玄关：挂衣架
-    ['de_coatrack', 2.4, 0, 0.18, '挂衣钩', [2.4, 1.1]],
+    ['de_coatrack', 3.3, 0, 0.18, '挂衣钩', [3.3, 1.1]],
     // 地下室：锅炉、碎砖堆
-    ['de_boiler', -11.3, -1.4, 0.75, '锅炉', [-10.4, 0.9]],
-    ['de_debris', -10.2, -1.4, 5.3, '碎砖', [-10.2, 4.4]],
+    ['de_boiler', -11.3, -1.4, 0.75, '锅炉', [-11.2, 1.8]],
+    ['de_debris', -10.0, -1.4, 3.7, '碎砖', [-9.6, 3.0]],
   ];
   DECOS.forEach(([id, x, y, z, label, stand, rot]) => {
     const g = group(x, y, z);
@@ -1682,6 +1684,6 @@ const World = (() => {
     lamps: { lockLed, echoEye, echoLight, qingLight, glass, lampShade },
     statusLeds, blood, robot, shard, potG, roomRoot,
     toon, setTick(fn) { tick = fn; },
-    renderer, player, gradTex, cam3,
+    renderer, player, gradTex, cam3, root,
   };
 })();

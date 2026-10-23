@@ -26,7 +26,7 @@ const Models = (() => {
     npc_qing: { size: [0.55, 0.55, 0.55], rotY: 0, float: true, alias: 'home' },
     // 网格脸朝 +X；走路逻辑假定角色朝 +Z，所以先转 -90°。不要再按长轴自动转。
     player: { size: [0.72, 1.45, 0.72], rotY: -Math.PI / 2, autoAlign: false },   // 大头 Q 版：放宽宽度，避免被缩得太小
-    deco_board: { size: [2.4, 1.6, 0.08], rotY: 0, lift: 1.4 },
+    deco_board: { size: [2.4, 1.6, 0.08], rotY: 0, lift: 1.4, exact: true },
     deco_lamp: { size: [0.4, 0.55, 0.4], rotY: 0 },
     deco_plant: { size: [0.7, 1.3, 0.7], rotY: 0 },
     deco_filing: { size: [0.55, 1.2, 0.5], rotY: 0 },
@@ -39,7 +39,7 @@ const Models = (() => {
     deco_laundry: { size: [0.55, 0.5, 0.55], rotY: 0 },
     deco_stool: { size: [0.4, 0.45, 0.4], rotY: 0 },
     deco_umbrella: { size: [0.4, 0.95, 0.4], rotY: 0 },
-    deco_clock: { size: [0.45, 0.45, 0.08], rotY: 0, lift: 2.4 },
+    deco_clock: { size: [0.45, 0.45, 0.08], rotY: 0, lift: 2.4, exact: true },
     deco_cardboard: { size: [1.1, 0.9, 0.8], rotY: 0.3 },
     deco_shelf: { size: [1.4, 1.8, 0.45], rotY: 0 },
     deco_fan: { size: [0.4, 0.55, 0.4], rotY: 0 },
@@ -71,12 +71,28 @@ const Models = (() => {
     st_mannequin: { size: [1.05, 0.28, 0.55], rotY: 0 },
     st_tools: { size: [0.9, 1.5, 0.6], rotY: 0, alias: 'tools' },
     st_radiator: { size: [0.55, 0.95, 0.22], rotY: 0 },
+    // ---- 替换剩下的白膜物件（tripo_de.py）----
+    lamp: { size: [0.5, 1.75, 0.5], rotY: 0 },
+    notice: { size: [1.0, 0.72, 0.9], rotY: 0, exact: true },   // 桌面高度要对上电话/打字机
+    robot: { size: [0.62, 0.14, 0.62], rotY: 0 },
+    waste: { size: [0.42, 0.6, 0.42], rotY: 0 },
+    ac: { size: [1.3, 0.38, 0.26], rotY: 0, exact: true },
+    pothos: { size: [0.9, 1.1, 0.9], rotY: 0 },
+    water: { size: [0.32, 1.0, 0.32], rotY: 0 },
+    speaker: { size: [0.6, 1.05, 0.5], rotY: 0 },
+    curtain: { size: [0.12, 2.6, 1.6], rotY: 0, exact: true },
+    locker: { size: [0.6, 1.1, 0.7], rotY: Math.PI / 2, autoAlign: false },   // 靠西墙，柜门朝 +X
+    dock: { size: [0.5, 0.32, 0.36], rotY: Math.PI },
+    status: { size: [0.42, 0.55, 0.07], rotY: 0, lift: 1.2, exact: true, keepScreen: true, screen: [0, 1.53, 0.045], screenScale: 0.6 },
+    counter: { size: [2.6, 0.95, 0.9], rotY: 0, exact: true },   // 台面高度要对上风扇
+    cel_sofa: { size: [1.7, 0.9, 0.8], rotY: Math.PI },        // 靠前沿护墙，面朝 -Z
+    cel_junk: { size: [1.3, 1.0, 0.65], rotY: 0 },
     // 吊灯：lift = 天花板 3.15 - 模型高度；emit 只让灯罩/灯泡自发光，不额外加点光源
     lamp_pendant: { size: [0.55, 0.8, 0.55], rotY: 0, lift: 2.35, emit: 0xffc27a },
     lamp_pendant2: { src: 'lamp_pendant', size: [0.55, 0.8, 0.55], rotY: 0, lift: 2.35, emit: 0xffc27a },
     lamp_bulb: { size: [0.16, 0.95, 0.16], rotY: 0, lift: 2.2, emit: 0xffd9a0 },
     lamp_bulb2: { src: 'lamp_bulb', size: [0.16, 0.95, 0.16], rotY: 0, lift: 2.2, emit: 0xffa250 },
-    st_sheets2: { src: 'de_laundry', size: [0.85, 0.3, 0.6], rotY: 0.4 },
+    st_sheets2: { src: 'de_laundry', size: [0.7, 0.28, 0.5], rotY: 0.4 },
     st_lamp: { src: 'de_walllamp', size: [0.28, 0.3, 0.28], rotY: 0, lift: 1.9, glow: 0xffd09a },
     st_bottles: { src: 'de_bottles', size: [0.45, 0.32, 0.35], rotY: 0 },
   };
@@ -231,6 +247,7 @@ const Models = (() => {
           if (ch.isLight) return;
           if (spec.keepScreen && ch.material && ch.material.isMeshBasicMaterial) {
             if (spec.screen) ch.position.set(spec.screen[0], spec.screen[1], spec.screen[2]);
+            if (spec.screenScale) ch.scale.setScalar(spec.screenScale);
             return;
           }
           if (spec.keepLights && ch.material && ch.material.emissive && ch.material.emissive.getHex() > 0) return;

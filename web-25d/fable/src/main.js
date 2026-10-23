@@ -7,6 +7,7 @@ function applyDay() {
   World.screens.tv.userData.setText(d.tv);
   World.screens.cam.userData.setText(S.day === 3 ? ['住户', '已终止'] : ['住户', '已确认']);
   if (World.lamps.lampShade) World.lamps.lampShade.material = World.toon(has('lit') || S.day > 1 ? 0xf2d79a : 0x3a3428, has('lit') || S.day > 1 ? 0x8a6a20 : 0);
+  lampLook();
   if (S.holding === 'shard') World.setVisible('shard', false);
   refreshHUD();
 }
@@ -245,7 +246,13 @@ World.onHover(label => { const p = $('prompt'); if (label) { p.textContent = lab
 World.onBlocked(room => toast(`${World.ROOMS[room].name}现在进不去`));
 World.onInteract(id => { if (modalOpen) return; const h = H[id]; if (h) h(); });
 World.start();
-Models.apply(World).then(n => { World.rebuildColliders(); if (n) console.log('Tripo3D 模型已加载', n); });
+// 小灯换成 Tripo 落地灯后，开灯 = 模型自发光
+function lampLook() {
+  const w = Models.loaded.lamp; if (!w) return;
+  const on = has('lit') || S.day > 1;
+  w.traverse(o => { if (o.isMesh && o.material) { o.material.emissive = new THREE.Color(on ? 0x8a6a20 : 0); o.material.emissiveIntensity = on ? 0.6 : 0; } });
+}
+Models.apply(World).then(n => { World.rebuildColliders(); lampLook(); if (n) console.log('Tripo3D 模型已加载', n); });
 loadSave.found = loadSave();
 paintBadge();
 if (loadSave.found) applyDay(); else { S.day = 1; applyDay(); S.day = 0; refreshHUD(); }
