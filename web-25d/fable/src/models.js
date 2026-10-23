@@ -61,6 +61,16 @@ const Models = (() => {
     de_debris: { size: [1.2, 0.4, 0.9], rotY: 0 },
     de_boiler: { size: [0.75, 1.6, 0.75], rotY: 0 },
     de_chairs: { size: [0.55, 1.0, 0.6], rotY: 0.5 },
+    // ---- 储物间（参考极乐迪斯科：堆叠的旧扶手椅、床单枕头、掉在地上的吊扇）----
+    // src：复用已有模型的数据，不额外生成 glb
+    st_arm1: { src: 'de_armchair2', size: [0.95, 0.95, 0.9], rotY: 0 },
+    st_arm2: { src: 'de_armchair', size: [0.85, 0.95, 0.85], rotY: 0 },
+    st_sheets: { src: 'de_laundry', size: [1.0, 0.4, 0.8], rotY: 0 },
+    st_sheets2: { src: 'de_laundry', size: [0.85, 0.3, 0.6], rotY: 0.4 },
+    st_fan: { src: 'de_ceilfan', size: [0.95, 0.3, 0.95], rotY: 0 },
+    st_radiator: { src: 'de_radiator', size: [0.85, 0.7, 0.2], rotY: 0 },
+    st_lamp: { src: 'de_walllamp', size: [0.28, 0.3, 0.28], rotY: 0, lift: 1.9, glow: 0xffd09a },
+    st_bottles: { src: 'de_bottles', size: [0.45, 0.32, 0.35], rotY: 0 },
   };
   const loaded = {};
   const floaters = [];
@@ -160,19 +170,21 @@ const Models = (() => {
   }
 
   async function apply(world) {
-    const ids = Object.keys(data);
+    // [物件 id, 模型数据 key]：模型文件本身 + SPEC 里用 src 复用别的模型的副本
+    const ids = Object.keys(data).map(id => [id, id])
+      .concat(Object.entries(SPEC).filter(([k, s]) => s.src && data[s.src] && !data[k]).map(([k, s]) => [k, s.src]));
     if (!ids.length || !THREE.GLTFLoader) return 0;
     const loader = new THREE.GLTFLoader();
     if (THREE.MeshoptDecoder) loader.setMeshoptDecoder(THREE.MeshoptDecoder);
     let n = 0;
-    for (const id of ids) {
+    for (const [id, key] of ids) {
       const spec = SPEC[id] || { fit: 'y', rotY: 0 };
       const hostId = spec.alias || id;
       const host = id === 'player' ? world.player : (world.interact[hostId] && world.interact[hostId].obj);
       if (!host) continue;
       if (loaded[hostId] && hostId !== id) continue;
       try {
-        const gltf = await new Promise((res, rej) => loader.parse(b64ToBuf(data[id]), '', res, rej));
+        const gltf = await new Promise((res, rej) => loader.parse(b64ToBuf(data[key]), '', res, rej));
         const model = gltf.scene;
         model.rotation.y = spec.rotY || 0;
         if (spec.flat) {
