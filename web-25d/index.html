@@ -6000,7 +6000,8 @@ const Models = (() => {
     model.position.y -= b2.min.y;
   }
 
-  function idle() { return new Promise(r => (typeof requestIdleCallback !== 'undefined' ? requestIdleCallback : setTimeout)(r)); }
+  // 让出一帧：requestIdleCallback 在渲染循环很忙时可能一直不触发，所以加 timeout 兜底
+  function idle() { return new Promise(r => typeof requestIdleCallback !== 'undefined' ? requestIdleCallback(r, { timeout: 50 }) : setTimeout(r, 0)); }
   async function apply(world) {
     const ids = Object.keys(data).map(id => [id, id])
       .concat(Object.entries(SPEC).filter(([k, s]) => s.src && data[s.src] && !data[k]).map(([k, s]) => [k, s.src]));
@@ -6009,7 +6010,7 @@ const Models = (() => {
     if (THREE.MeshoptDecoder) loader.setMeshoptDecoder(THREE.MeshoptDecoder);
     let n = 0;
     for (const [id, key] of ids) {
-      if (n > 0 && n % 4 === 0) await idle();   // 每 4 个模型让出一帧，画面先动起来
+      if (n > 0 && n % 8 === 0) await idle();   // 每 4 个模型让出一帧，画面先动起来
       const spec = SPEC[id] || { fit: 'y', rotY: 0 };
       const hostId = spec.alias || id;
       const host = id === 'player' ? world.player : (world.interact[hostId] && world.interact[hostId].obj);
