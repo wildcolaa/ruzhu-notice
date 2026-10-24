@@ -22,6 +22,9 @@ const World = (() => {
 
   // ---------- 后期：Bloom + 暗角 / 颗粒 / 色偏 / 冷调分级 ----------
   const composer = new THREE.EffectComposer(renderer);
+  const depthRT = new THREE.WebGLRenderTarget(1, 1);
+  depthRT.texture.minFilter = THREE.NearestFilter; depthRT.texture.magFilter = THREE.NearestFilter;
+  depthRT.depthTexture = new THREE.DepthTexture(1, 1); depthRT.depthTexture.type = THREE.UnsignedInt248Type || THREE.UnsignedIntType;
   composer.addPass(new THREE.RenderPass(scene, camera));
   const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(512, 512), 0.7, 0.8, 0.68);
   composer.addPass(bloom);
@@ -55,6 +58,74 @@ const World = (() => {
       }`,
   });
   composer.addPass(paint);
+  // ---------- 体积雾 ----------
+  // 指数高度雾（贴着地面最浓、往上变薄）沿视线积分 + 灯光散射（光源附近的雾被照亮，形成光晕/光柱感）
+  // + 缓慢飘动的噪声，让雾成团成缕。读 RenderPass 之外单独渲染的深度。
+  const FOG_L = 6;
+  const fogPass = new THREE.ShaderPass({
+    uniforms: {
+      tDiffuse: { value: null }, tDepth: { value: null },
+      uInvVP: { value: new THREE.Matrix4() }, uCamDir: { value: new THREE.Vector3() },
+      uTime: { value: 0 },
+      uDensity: { value: 0.16 },   // 整体浓度
+      uFall: { value: 0.75 },       // 高度衰减：越大雾越贴地
+      uBase: { value: 0.0 },       // 雾层底面高度（地下室房间时下移）
+      uFogCol: { value: new THREE.Color(0.26, 0.30, 0.34) },
+      uLPos: { value: Array.from({ length: FOG_L }, () => new THREE.Vector3(0, -99, 0)) },
+      uLCol: { value: Array.from({ length: FOG_L }, () => new THREE.Color(0)) },
+      uScatter: { value: 1.0 },
+    },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `
+      #define NL ${FOG_L}
+      uniform sampler2D tDiffuse; uniform sampler2D tDepth;
+      uniform mat4 uInvVP; uniform vec3 uCamDir; uniform float uTime;
+      uniform float uDensity; uniform float uFall; uniform float uBase; uniform vec3 uFogCol;
+      uniform vec3 uLPos[NL]; uniform vec3 uLCol[NL]; uniform float uScatter;
+      varying vec2 vUv;
+      float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+      float noise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                   mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z); }
+      vec3 unproject(vec2 uv, float d){ vec4 v = uInvVP * vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); return v.xyz / v.w; }
+      void main(){
+        vec4 c = texture2D(tDiffuse, vUv);
+        float depth = texture2D(tDepth, vUv).x;
+        if (depth >= 0.99999) { gl_FragColor = c; return; }
+        // 正交相机：所有视线平行。从场景上方 4m 的平面开始积分到命中点（之上没有雾）
+        vec3 hit = unproject(vUv, depth);
+        vec3 rd = normalize(uCamDir);
+        float top = uBase + 4.0;
+        float tIn = (top - hit.y) / -rd.y;          // 命中点往回到雾顶的长度
+        vec3 ro = hit - rd * tIn;                    // 雾顶的入口
+        float L = tIn;
+        // 解析积分：密度 = d * exp(-fall * (y - base))
+        float h0 = ro.y - uBase;
+        float k = uFall * rd.y;
+        float fogInt = uDensity * exp(-uFall * h0) * (abs(k) > 1e-4 ? (1.0 - exp(-k * L)) / k : L);
+        // 噪声：在命中点附近、接近地面的层里取样，缓慢漂移
+        vec3 q = hit * vec3(0.55, 1.2, 0.55) + vec3(uTime * 0.05, 0.0, uTime * 0.035);
+        float n = noise(q) * 0.6 + noise(q * 2.3 + 7.1) * 0.4;
+        fogInt *= 0.4 + n * 1.2;
+        float fog = 1.0 - exp(-fogInt);
+        // 灯光散射：视线到每盏灯的最近距离 → 高斯光晕，只计算在命中点之前的那一段
+        vec3 inscat = vec3(0.0);
+        for (int i = 0; i < NL; i++) {
+          vec3 lp = uLPos[i];
+          if (lp.y < -50.0) continue;
+          float t = clamp(dot(lp - ro, rd), 0.0, L);
+          vec3 pc = ro + rd * t;
+          float d2 = dot(lp - pc, lp - pc);
+          // 光源下方雾更浓（光柱往下）
+          float below = smoothstep(0.0, 1.0, lp.y - pc.y + 0.3);
+          inscat += uLCol[i] * (exp(-d2 * 0.7) + 0.25 * exp(-d2 * 0.12)) * (0.35 + 0.65 * below) * (0.6 + n * 0.8);
+        }
+        vec3 fc = uFogCol * (0.7 + n * 0.5);
+        c.rgb = mix(c.rgb, fc, fog) + inscat * uScatter * (0.25 + fog);
+        gl_FragColor = c;
+      }`,
+  });
+  composer.addPass(fogPass);
   const grade = new THREE.ShaderPass({
     uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uAlarm: { value: 0 }, uPulse: { value: 0 }, uFade: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -1489,6 +1560,12 @@ const World = (() => {
       L.cone.material.opacity = k === m.focus ? 0.22 : 0.07;
     });
     // 夜里窗外是城市的冷光，白天是阴天的灰白光；都从玻璃幕墙照进来
+    // 体积雾：夜晚浓一些偏冷青，白天薄偏暖灰；警报时浓红
+    // 雾色直接给线性 RGB（Color.set(hex) 会做 sRGB→线性转换，暗色会几乎变黑，雾就看不出来）
+    fogPass.uniforms.uDensity.value = m.alarm ? 0.38 : (m.night ? 0.3 : 0.2);
+    if (m.alarm) fogPass.uniforms.uFogCol.value.setRGB(0.36, 0.09, 0.07);
+    else if (m.night) fogPass.uniforms.uFogCol.value.setRGB(0.34, 0.38, 0.42);
+    else fogPass.uniforms.uFogCol.value.setRGB(0.5, 0.5, 0.48);
     hemi.intensity = m.night ? 0.16 : 0.26;
     sun.intensity = m.night ? 0.95 : 1.55;
     sun.color.set(m.night ? 0xa8c0d4 : 0xe6ecef);
@@ -1501,14 +1578,57 @@ const World = (() => {
   let tick = null;
   // 自适应画质：连续卡顿就关掉 Bloom、降低像素比
   const LITE = /[?&]lite/.test(location.search);
+  // 雾用的深度：只画不透明物体（玻璃、光柱、灰尘、雾片不挡雾），用最便宜的材质，不更新阴影
+  const depthMat = new THREE.MeshBasicMaterial({ colorWrite: false });
+  let _transp = null, _transpAt = -1;
+  function renderFogDepth() {
+    const now = clock.elapsedTime;
+    if (!_transp || now - _transpAt > 3) {      // 模型异步加载，隔几秒重收集一次
+      _transp = []; _transpAt = now;
+      scene.traverse(o => {
+        if (o.isPoints || o.isLine || o.isSprite) { _transp.push(o); return; }
+        if (!o.isMesh) return;
+        const m = Array.isArray(o.material) ? o.material[0] : o.material;
+        if (m && (m.transparent || m.blending === THREE.AdditiveBlending || m.depthWrite === false)) _transp.push(o);
+      });
+    }
+    const vis = _transp.map(o => o.visible);
+    _transp.forEach(o => { o.visible = false; });
+    const au = renderer.shadowMap.autoUpdate, bg = scene.background, fg = scene.fog;
+    renderer.shadowMap.autoUpdate = false; scene.overrideMaterial = depthMat; scene.background = null; scene.fog = null;
+    const old = renderer.getRenderTarget();
+    renderer.setRenderTarget(depthRT); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(old);
+    scene.overrideMaterial = null; scene.background = bg; scene.fog = fg; renderer.shadowMap.autoUpdate = au;
+    _transp.forEach((o, i) => { o.visible = vis[i]; });
+  }
+  // 体积雾的散射光源：离镜头焦点最近的几盏亮着的点光源（吊灯、落地灯/壁灯的 glow、地下室钠灯）
+  const _fl = [], _v = new THREE.Vector3();
+  function updateFogLights() {
+    if (!_fl.length || _fl.dirty) {
+      _fl.length = 0;
+      root.traverse(o => { if (o.isPointLight && o !== keyLight && o.distance > 0) _fl.push(o); });
+    }
+    const f = cam3.target;
+    const cand = _fl.filter(l => l.visible && l.intensity > 0.05).map(l => { l.getWorldPosition(_v); return [l, _v.clone(), _v.distanceToSquared(f)]; })
+      .sort((a, b) => a[2] - b[2]).slice(0, FOG_L);
+    const P = fogPass.uniforms.uLPos.value, C = fogPass.uniforms.uLCol.value;
+    for (let i = 0; i < FOG_L; i++) {
+      if (cand[i]) {
+        const [l, pos] = cand[i]; P[i].copy(pos);
+        C[i].copy(l.color).multiplyScalar(Math.min(1.6, l.intensity) * 0.55);
+      } else P[i].set(0, -99, 0);
+    }
+  }
   let slow = 0, degraded = false;
   function degrade() {
     if (degraded) return; degraded = true;
     bloom.enabled = false;
     paint.uniforms.uR.value = 2.0;
+    fogPass.uniforms.uScatter.value = 0.6;
     renderer.setPixelRatio(1); resize();
   }
   if (LITE) degrade();
+  if (/[?&]nofog/.test(location.search)) fogPass.enabled = false;   // 对比/调试用
   // ---------- 主角骨骼动画：走路 walk、停下 idle ----------
   let mixer = null, act = {}, curAct = null;
   function setPlayerAnim(model, clips) {
@@ -1632,6 +1752,16 @@ const World = (() => {
     if (tick) tick(dt, t);
     Models.tick && Models.tick(dt, t);
     updateCamera();
+    // 深度：渲染到 offscreen 目标，给体积雾用
+    const wpx = Math.round(renderer.domElement.width / 2), hpx = Math.round(renderer.domElement.height / 2);   // 半分辨率够用
+    if (depthRT.width !== wpx || depthRT.height !== hpx) depthRT.setSize(wpx, hpx);
+    if (fogPass.enabled) renderFogDepth();
+    fogPass.uniforms.tDepth.value = depthRT.depthTexture;
+    fogPass.uniforms.uInvVP.value.multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
+    camera.getWorldDirection(fogPass.uniforms.uCamDir.value);
+    fogPass.uniforms.uTime.value = t;
+    fogPass.uniforms.uBase.value += ((activeRoom && ROOMS[activeRoom].y < 0 ? -1.4 : 0) - fogPass.uniforms.uBase.value) * 0.05;
+    updateFogLights();
     composer.render();
     requestAnimationFrame(loop);
   }
