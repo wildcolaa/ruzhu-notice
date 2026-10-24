@@ -193,8 +193,8 @@ const Models = (() => {
     model.position.y -= b2.min.y;
   }
 
+  function idle() { return new Promise(r => (typeof requestIdleCallback !== 'undefined' ? requestIdleCallback : setTimeout)(r)); }
   async function apply(world) {
-    // [物件 id, 模型数据 key]：模型文件本身 + SPEC 里用 src 复用别的模型的副本
     const ids = Object.keys(data).map(id => [id, id])
       .concat(Object.entries(SPEC).filter(([k, s]) => s.src && data[s.src] && !data[k]).map(([k, s]) => [k, s.src]));
     if (!ids.length || !THREE.GLTFLoader) return 0;
@@ -202,6 +202,7 @@ const Models = (() => {
     if (THREE.MeshoptDecoder) loader.setMeshoptDecoder(THREE.MeshoptDecoder);
     let n = 0;
     for (const [id, key] of ids) {
+      if (n > 0 && n % 4 === 0) await idle();   // 每 4 个模型让出一帧，画面先动起来
       const spec = SPEC[id] || { fit: 'y', rotY: 0 };
       const hostId = spec.alias || id;
       const host = id === 'player' ? world.player : (world.interact[hostId] && world.interact[hostId].obj);

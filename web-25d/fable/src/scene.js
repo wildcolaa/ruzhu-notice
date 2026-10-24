@@ -11,7 +11,7 @@ const World = (() => {
   renderer.outputEncoding = THREE.sRGBEncoding;
 
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 0.95;
 
   const NIGHT_BG = 0x050505;
   const scene = new THREE.Scene();
@@ -26,7 +26,7 @@ const World = (() => {
   depthRT.texture.minFilter = THREE.NearestFilter; depthRT.texture.magFilter = THREE.NearestFilter;
   depthRT.depthTexture = new THREE.DepthTexture(1, 1); depthRT.depthTexture.type = THREE.UnsignedInt248Type || THREE.UnsignedIntType;
   composer.addPass(new THREE.RenderPass(scene, camera));
-  const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(512, 512), 0.7, 0.8, 0.68);
+  const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(512, 512), 0.55, 0.8, 0.72);
   composer.addPass(bloom);
   // 油画滤镜（极乐迪斯科的手绘感）：Kuwahara 取四个象限里方差最小的平均色，
   // 边缘保持锐利、平坦处变成一块块颜料；半径随屏幕大小缩放
@@ -81,7 +81,7 @@ const World = (() => {
       uShaftA: { value: new Array(FOG_B).fill(0.1) },
       uShaftW: { value: Array.from({ length: FOG_B }, () => new THREE.Vector2(0.6, 0.6)) },   // 光体起点的半宽 / 半高
       uShaftL: { value: new Array(FOG_B).fill(5) },                                          // 光体长度
-      uBeamI: { value: 0.42 },
+      uBeamI: { value: 0.3 },
       uSteps: { value: 16 },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -130,7 +130,7 @@ const World = (() => {
           float d2 = dot(lp - pc, lp - pc);
           // 光源下方雾更浓（光柱往下）
           float below = smoothstep(0.0, 1.0, lp.y - pc.y + 0.3);
-          inscat += uLCol[i] * (0.8 * exp(-d2 * 0.9) + 0.4 * exp(-d2 * 0.18)) * (0.35 + 0.65 * below) * (0.7 + n * 0.6);
+          inscat += uLCol[i] * (0.7 * exp(-d2 * 1.0) + 0.3 * exp(-d2 * 0.2)) * (0.35 + 0.55 * below) * (0.6 + n * 0.6);
         }
         vec3 fc = uFogCol * (0.7 + n * 0.5);
         // ---- 窗光体积：参考图那种整片、柔和、充满房间的冷色光雾（不是细光条）----
@@ -1621,7 +1621,7 @@ const World = (() => {
     else if (m.night) fogPass.uniforms.uFogCol.value.setRGB(0.15, 0.2, 0.26);
     else fogPass.uniforms.uFogCol.value.setRGB(0.24, 0.29, 0.34);
     // 光柱颜色：白天是阴天的冷白日光，夜里是窗外城市/月光的青蓝，警报时暗红
-    const bc = m.alarm ? [1.0, 0.25, 0.2] : (m.night ? [0.62, 0.82, 1.1] : [0.95, 1.08, 1.2]);   // 冷青灰的窗光
+    const bc = m.alarm ? [0.85, 0.2, 0.15] : (m.night ? [0.5, 0.65, 0.85] : [0.7, 0.78, 0.88]);   // 冷青灰的窗光
     fogPass.uniforms.uShaftC.value.forEach(c => c.setRGB(bc[0], bc[1], bc[2]));
     hemi.intensity = m.night ? 0.16 : 0.26;
     sun.intensity = m.night ? 0.95 : 1.55;
@@ -1690,7 +1690,7 @@ const World = (() => {
     for (let i = 0; i < FOG_L; i++) {
       if (cand[i]) {
         const [l, pos] = cand[i]; P[i].copy(pos);
-        C[i].copy(l.color).multiplyScalar(Math.min(1.6, l.intensity) * 0.75);
+        C[i].copy(l.color).multiplyScalar(Math.min(1.6, l.intensity) * 0.5);
       } else P[i].set(0, -99, 0);
     }
   }
