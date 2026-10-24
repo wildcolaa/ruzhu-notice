@@ -74,6 +74,15 @@ const World = (() => {
       uLPos: { value: Array.from({ length: FOG_L }, () => new THREE.Vector3(0, -99, 0)) },
       uLCol: { value: Array.from({ length: FOG_L }, () => new THREE.Color(0)) },
       uScatter: { value: 1.0 },
+      // 丁达尔光束：起点、方向、颜色、张角
+      uShaftP: { value: Array.from({ length: 4 }, () => new THREE.Vector3()) },
+      uShaftD: { value: Array.from({ length: 4 }, () => new THREE.Vector3()) },
+      uShaftC: { value: Array.from({ length: 4 }, () => new THREE.Color(0)) },
+      uShaftA: { value: [0.1, 0.1, 0.1, 0.1] },
+      uShaftW: { value: Array.from({ length: 4 }, () => new THREE.Vector2(0.6, 0.6)) },   // 窗口半宽 / 半高
+      uShaftL: { value: [5, 5, 5, 5] },                                                     // 光柱长度
+      uBeamI: { value: 3.8 },
+      uSteps: { value: 16 },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `
@@ -82,6 +91,8 @@ const World = (() => {
       uniform mat4 uInvVP; uniform vec3 uCamDir; uniform float uTime;
       uniform float uDensity; uniform float uFall; uniform float uBase; uniform vec3 uFogCol;
       uniform vec3 uLPos[NL]; uniform vec3 uLCol[NL]; uniform float uScatter;
+      uniform vec3 uShaftP[4]; uniform vec3 uShaftD[4]; uniform vec3 uShaftC[4]; uniform float uShaftA[4];
+      uniform vec2 uShaftW[4]; uniform float uShaftL[4]; uniform float uBeamI; uniform float uSteps;
       varying vec2 vUv;
       float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
       float noise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -121,7 +132,53 @@ const World = (() => {
           inscat += uLCol[i] * (exp(-d2 * 0.7) + 0.25 * exp(-d2 * 0.12)) * (0.35 + 0.65 * below) * (0.6 + n * 0.8);
         }
         vec3 fc = uFogCol * (0.7 + n * 0.5);
-        c.rgb = mix(c.rgb, fc, fog) + inscat * uScatter * (0.25 + fog);
+        // ---- 丁达尔光束：沿视线在雾层里步进，穿过窗户射进来的光柱。
+        // 光柱横截面里叠一层慢慢漂移的条纹噪声（灰尘/窗格），边缘柔和；相位函数一半各向同性、一半前向，
+        // 保证 2.5D 俯视角下也看得见（纯前向散射时光往远离镜头的方向走就几乎看不到）
+        vec3 beams = vec3(0.0);
+        const int NS = 16;
+        for (int i = 0; i < 4; i++) {
+          vec3 sd = uShaftD[i];
+          if (dot(sd, sd) < 0.25) continue;
+          vec3 bc = uShaftP[i] + sd * (uShaftL[i] * 0.5);
+          float br = uShaftL[i] * 0.5 + max(uShaftW[i].x, uShaftW[i].y) + uShaftA[i] * uShaftL[i];
+          vec3 oc = bc - ro; float tb = dot(oc, rd);
+          if (dot(oc, oc) - tb * tb > br * br || tb + br < 0.0 || tb - br > L) continue;
+          float ca = dot(-rd, sd);
+          float g = 0.55, g2 = g * g;
+          float phase = 0.55 + 0.45 * (1.0 - g2) / pow(1.0 + g2 - 2.0 * g * ca, 1.5);
+          // 光柱的两条横向基向量（用来做条纹）
+          vec3 ux = normalize(cross(sd, abs(sd.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+          vec3 uy = cross(sd, ux);
+          vec3 acc = vec3(0.0);
+          for (int j = 0; j < NS; j++) {
+            if (float(j) >= uSteps) break;
+            float tj = (float(j) + 0.5 + (n - 0.5) * 0.6) / uSteps;
+            vec3 q = ro + rd * (L * tj);
+            vec3 v = q - uShaftP[i];
+            float ax = dot(v, sd);
+            if (ax < 0.0 || ax > uShaftL[i]) continue;
+            vec3 cr = v - sd * ax;
+            float rx = dot(cr, ux), ry = dot(cr, uy);
+            float w = uShaftW[i].x + uShaftA[i] * ax, h = uShaftW[i].y + uShaftA[i] * ax;
+            // 矩形窗口的投影：两个方向各自的软边
+            float m = (1.0 - smoothstep(w * 0.75, w, abs(rx))) * (1.0 - smoothstep(h * 0.75, h, abs(ry)));
+            if (m <= 0.0) continue;
+            // 窗格十字（竖梃/横档）在光柱里留下暗缝
+            float mull = smoothstep(0.05, 0.11, abs(rx)) * smoothstep(0.04, 0.1, abs(ry - h * 0.1));
+            // 再叠一层随时间慢慢移动的细光缕（灰尘在光里打转）
+            float rays = 0.55 + 0.45 * sin(rx * 26.0 + noise(vec3(ry * 2.0, ax * 0.3, uTime * 0.2)) * 4.0);
+            // 条纹：沿光柱方向拉长的噪声，慢慢漂移
+            float st = noise(vec3(rx * 4.5, ry * 4.5, ax * 0.2 - uTime * 0.12)); st = 0.25 + 1.1 * st * st;
+            float fade = smoothstep(0.0, 0.5, ax) * (1.0 - smoothstep(uShaftL[i] * 0.55, uShaftL[i], ax));
+            float hq = q.y - uBase;
+            float dn = exp(-uFall * 0.45 * max(hq, 0.0)) * smoothstep(0.0, 0.7, hq);   // 贴地淡出，光柱在空中最清楚
+            acc += vec3(m * mull * st * rays * fade * dn);
+          }
+          beams += uShaftC[i] * acc * phase;
+        }
+        beams *= L / uSteps * uBeamI;
+        c.rgb = mix(c.rgb, fc, fog) + inscat * uScatter * (0.25 + fog) + beams * uScatter;
         gl_FragColor = c;
       }`,
   });
@@ -1562,10 +1619,13 @@ const World = (() => {
     // 夜里窗外是城市的冷光，白天是阴天的灰白光；都从玻璃幕墙照进来
     // 体积雾：夜晚浓一些偏冷青，白天薄偏暖灰；警报时浓红
     // 雾色直接给线性 RGB（Color.set(hex) 会做 sRGB→线性转换，暗色会几乎变黑，雾就看不出来）
-    fogPass.uniforms.uDensity.value = m.alarm ? 0.38 : (m.night ? 0.3 : 0.2);
+    fogPass.uniforms.uDensity.value = m.alarm ? 0.34 : (m.night ? 0.24 : 0.16);
     if (m.alarm) fogPass.uniforms.uFogCol.value.setRGB(0.36, 0.09, 0.07);
     else if (m.night) fogPass.uniforms.uFogCol.value.setRGB(0.34, 0.38, 0.42);
     else fogPass.uniforms.uFogCol.value.setRGB(0.5, 0.5, 0.48);
+    // 光柱颜色：白天是阴天的冷白日光，夜里是窗外城市/月光的青蓝，警报时暗红
+    const bc = m.alarm ? [1.1, 0.25, 0.2] : (m.night ? [0.75, 0.95, 1.25] : [1.45, 1.4, 1.25]);
+    fogPass.uniforms.uShaftC.value.forEach(c => c.setRGB(bc[0], bc[1], bc[2]));
     hemi.intensity = m.night ? 0.16 : 0.26;
     sun.intensity = m.night ? 0.95 : 1.55;
     sun.color.set(m.night ? 0xa8c0d4 : 0xe6ecef);
@@ -1603,6 +1663,22 @@ const World = (() => {
   }
   // 体积雾的散射光源：离镜头焦点最近的几盏亮着的点光源（吊灯、落地灯/壁灯的 glow、地下室钠灯）
   const _fl = [], _v = new THREE.Vector3();
+  // 丁达尔光柱：从三扇后墙窗、玄关前的玻璃幕墙射进来（与 windowOn 的位置/尺寸对应）
+  function setupBeams() {
+    const U = fogPass.uniforms;
+    const B = [
+      // [起点 (窗中心，略往外)], [方向], [半宽, 半高], 张角, 长度
+      [[-4.4, 1.7, -6.1], [0.32, -0.55, 0.8], [0.6, 0.55], 0.03, 4.6],     // 客厅后窗
+      [[3.25, 1.8, -6.1], [-0.25, -0.6, 0.8], [0.42, 0.48], 0.03, 4.2],   // 厨房后窗
+      [[-12.1, 1.65, -2.6], [0.82, -0.5, 0.3], [0.75, 0.6], 0.03, 4.8],  // 卧室侧窗（竖墙：方向沿 +X）
+      [[0.4, 2.3, 6.1], [0.25, -0.55, -0.83], [0.8, 0.8], 0.03, 4.4],       // 玄关前玻璃幕墙
+    ];
+    B.forEach(([p, d, w, a, l], i) => {
+      U.uShaftP.value[i].set(p[0], p[1], p[2]); U.uShaftD.value[i].set(d[0], d[1], d[2]).normalize();
+      U.uShaftW.value[i].set(w[0], w[1]); U.uShaftA.value[i] = a; U.uShaftL.value[i] = l;
+    });
+  }
+  setupBeams();
   function updateFogLights() {
     if (!_fl.length || _fl.dirty) {
       _fl.length = 0;
@@ -1625,10 +1701,12 @@ const World = (() => {
     bloom.enabled = false;
     paint.uniforms.uR.value = 2.0;
     fogPass.uniforms.uScatter.value = 0.6;
+    fogPass.uniforms.uSteps.value = 8;
     renderer.setPixelRatio(1); resize();
   }
   if (LITE) degrade();
   if (/[?&]nofog/.test(location.search)) fogPass.enabled = false;   // 对比/调试用
+  { const mb = location.search.match(/[?&]beam=([\d.]+)/); if (mb) fogPass.uniforms.uBeamI.value = +mb[1]; }   // 调光柱强度
   // ---------- 主角骨骼动画：走路 walk、停下 idle ----------
   let mixer = null, act = {}, curAct = null;
   function setPlayerAnim(model, clips) {
