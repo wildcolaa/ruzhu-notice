@@ -472,7 +472,9 @@ const World = (() => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
     m.position.set(x, y, z); m.rotation.y = rotY || 0;
     parent.add(m);
-    m.userData.setText = (ls, o) => { m.material.map.dispose(); m.material.map = textTexture(ls, Object.assign({}, opt, o)); m.material.needsUpdate = true; };
+    m.userData.opt = opt || {};
+    m.userData.setText = (ls, o) => { m.userData.lines = ls; m.material.map.dispose(); m.material.map = textTexture(ls, Object.assign({}, m.userData.opt, o)); m.material.needsUpdate = true; };
+    m.userData.lines = lines;
     return m;
   }
 

@@ -10,7 +10,9 @@ const Models = (() => {
   // size: 目标世界尺寸 [宽, 高, 深]；rotY 修正 Tripo 朝向
   const SPEC = {
     sofa: { size: [2.8, 1.0, 1.1], rotY: 0 },
-    tv: { size: [1.0, 1.15, 0.6], rotY: 0, keepScreen: true, screen: [0, 0.85, 0.32] },
+    // Tripo 电视模型原本屏幕朝 -Z（贴墙），转 180° 让显像管朝向房间；
+    // 文字屏缩到显像管大小，贴在玻璃前面，不再伸出机身两侧；状态灯放到旋钮面板上
+    tv: { size: [1.0, 1.15, 0.6], rotY: Math.PI, keepScreen: true, screen: [-0.07, 0.625, 0.315], screenGeo: [0.62, 0.48], screenTex: { w: 420, h: 340, size: 30 }, led: [0.37, 0.68, 0.3, 0.4] },
     bed: { size: [2.2, 1.0, 1.25], rotY: 0 },
     planner: { size: [1.05, 2.15, 0.95], rotY: 0, keepScreen: true, screen: [0, 1.45, 0.5], alias: 'fridge' },
     tortoise: { size: [0.5, 0.32, 0.55], rotY: 0 },
@@ -247,13 +249,21 @@ const Models = (() => {
         }
         host.children.forEach(ch => {
           if (ch.isLight) return;
+          // 状态灯也是 MeshBasicMaterial，要先于屏幕判断，否则会被当成屏幕挪走
+          if (ch.userData && ch.userData.keep) {
+            if (spec.led && world.statusLeds && world.statusLeds[hostId] === ch) { ch.position.set(spec.led[0], spec.led[1], spec.led[2]); ch.scale.setScalar(spec.led[3]); }
+            return;
+          }
           if (spec.keepScreen && ch.material && ch.material.isMeshBasicMaterial) {
             if (spec.screen) ch.position.set(spec.screen[0], spec.screen[1], spec.screen[2]);
             if (spec.screenScale) ch.scale.setScalar(spec.screenScale);
+            if (spec.screenGeo) {
+              ch.geometry.dispose(); ch.geometry = new THREE.PlaneGeometry(spec.screenGeo[0], spec.screenGeo[1]);
+              if (spec.screenTex && ch.userData.setText) { Object.assign(ch.userData.opt, spec.screenTex); ch.userData.setText(ch.userData.lines); }
+            }
             return;
           }
           if (spec.keepLights && ch.material && ch.material.emissive && ch.material.emissive.getHex() > 0) return;
-          if (ch.userData && ch.userData.keep) return;
           ch.visible = false;
         });
         host.add(wrap);
