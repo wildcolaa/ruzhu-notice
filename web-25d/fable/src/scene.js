@@ -1172,6 +1172,48 @@ const World = (() => {
     });
     return out;
   }
+  // ---- 挡视线的墙：从当前房间往相机方向打射线，碰到的墙块/门/门套变成半透明 ----
+  // 每个房间只建背墙和左墙，所以东边邻居的左墙、前面房间的背墙会挡住本房间靠右、靠前的家具。
+  // 正交相机：只和视线方向有关，换房间或拖动视角后重算。
+  const fadedWalls = new Set();
+  let occKey = '';
+  function wallMeshes() {
+    const out = [];
+    wallLines.forEach(w => w.g.traverse(m => { if (m.isMesh) out.push(m); }));
+    return out;
+  }
+  function setFaded(m, on) {
+    if (on) {
+      if (!m.userData.origMat) {
+        m.userData.origMat = m.material;
+        const f = m.material.clone(); f.transparent = true; f.opacity = 0.14; f.depthWrite = false;
+        m.userData.fadeMat = f;
+      }
+      m.material = m.userData.fadeMat; m.castShadow = false;
+      m.children.forEach(c => { if (c.isLineSegments) c.visible = false; });
+    } else if (m.userData.origMat) {
+      m.material = m.userData.origMat; m.castShadow = true;
+      m.children.forEach(c => { if (c.isLineSegments) c.visible = true; });
+    }
+  }
+  function updateOcclusion(force) {
+    const k = activeRoom; if (!k) return;
+    camera.updateMatrixWorld(true);
+    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+    const key = k + ':' + dir.x.toFixed(2) + ',' + dir.z.toFixed(2);
+    if (!force && key === occKey) return; occKey = key;
+    const r = ROOMS[k], meshes = wallMeshes(), rc = new THREE.Raycaster(), back = dir.clone().negate();
+    const hit = new Set();
+    rc.far = 40;
+    for (let x = r.x0 + 0.2; x < r.x1 - 0.1; x += 0.4)
+      for (let z = r.z0 + 0.2; z < r.z1 - 0.1; z += 0.4)
+        for (const h of [0.15, 0.8, 1.6]) {
+          rc.set(new THREE.Vector3(x, r.y + h, z), back);
+          rc.intersectObjects(meshes, false).forEach(q => hit.add(q.object));
+        }
+    fadedWalls.forEach(m => { if (!hit.has(m)) { setFaded(m, false); fadedWalls.delete(m); } });
+    hit.forEach(m => { if (!fadedWalls.has(m)) { setFaded(m, true); fadedWalls.add(m); } });
+  }
   function showRoom(k, instant) {
     if (!ROOMS[k] || k === activeRoom) return;
     activeRoom = k;
@@ -1204,6 +1246,7 @@ const World = (() => {
       dp[i * 3 + 2] = r.z0 + Math.random() * (r.z1 - r.z0);
     }
     dust.userData.room = r;
+    updateOcclusion(true);
     onRoomChange && onRoomChange(k);
   }
   let fade = 0, fadeDir = 0, pendingRoom = null;
@@ -1776,8 +1819,10 @@ const World = (() => {
     if (curAct) curAct.crossFadeTo(a, fade == null ? 0.2 : fade, false);
     curAct = a;
   }
+  let occTick = 0;
   function loop() {
     const raw = clock.getDelta();
+    if (++occTick % 10 === 0) updateOcclusion(false);
     if (!degraded) { slow = raw > 0.06 ? slow + raw : Math.max(0, slow - raw); if (slow > 2.5) degrade(); }
     const dt = Math.min(0.05, raw);
     const t = clock.elapsedTime;
@@ -1943,6 +1988,6 @@ const World = (() => {
     lamps: { lockLed, echoEye, echoLight, qingLight, glass, lampShade },
     statusLeds, blood, robot, shard, potG, roomRoot,
     toon, setTick(fn) { tick = fn; },
-    renderer, player, gradTex, cam3, root, spot,
+    renderer, player, gradTex, cam3, root, spot, camera, wallGroups: () => wallLines, fadedWalls: () => fadedWalls.size,
   };
 })();
