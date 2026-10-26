@@ -37,8 +37,13 @@ function clue(text) {
 function evidenceCount() { return Object.keys(EVIDENCE).filter(k => has(k)).length; }
 
 function paintBadge() {
-  const el = $('badge'); if (!el || !window.BADGE_SRC) return;
-  el.innerHTML = `<img alt="" src="${window.BADGE_SRC}">`;
+  // 软盘标签：铅笔侧颜 + 黑色刷痕（fable/ui/portrait.webp、grunge.webp）
+  const el = $('badge'); if (!el) return;
+  const img = typeof UI_IMG !== 'undefined' ? UI_IMG : {};
+  if (img.portrait) el.style.backgroundImage = `url(${img.portrait})`;
+  else if (window.BADGE_SRC) el.innerHTML = `<img alt="" src="${window.BADGE_SRC}">`;
+  const gr = document.querySelector('.dk-grunge');
+  if (gr && img.grunge) gr.style.backgroundImage = `url(${img.grunge})`;
 }
 
 // ---------- 模态 ----------
@@ -143,7 +148,15 @@ function refreshHUD() {
   $('cluelist').innerHTML = S.clues.length ? S.clues.map(c => `<li>${esc(c)}</li>`).join('') : '<li>尚未留存记录。</li>';
   const total = 6, n = evidenceCount();
   $('pfill').style.width = Math.min(100, (n / total) * 100) + '%';
-  $('plabel').textContent = `原始记录 ${n} / ${total}`;
+  $('plabel').textContent = `${n} / ${total}`;
+  const hero = $('hero');
+  if (hero) {
+    hero.classList.toggle('found', n >= total);
+    $('dkTitle').innerHTML = n >= total ? '找到<br>我了。' : '能找到<br>我吗？';
+    hero.setAttribute('aria-label', `原始记录 ${n} / ${total}`);
+    if (refreshHUD._n != null && n > refreshHUD._n) { hero.classList.remove('bump'); void hero.offsetWidth; hero.classList.add('bump'); }
+    refreshHUD._n = n;
+  }
   $('dock').innerHTML = `<button class="npcbtn" id="btnPhone">手机（N）</button><button class="toolbtn" id="btnNotice">住户须知</button><button class="toolbtn" id="btnAI">AI 设置${NPC.hasGroq() ? ' ✓' : ''}</button><button class="toolbtn" id="btnReset">重新开始</button>`;
   $('btnPhone').onclick = openPhone;
   $('btnAI').onclick = () => openAISettings();
