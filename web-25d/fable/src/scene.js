@@ -82,7 +82,8 @@ const World = (() => {
       uShaftW: { value: Array.from({ length: FOG_B }, () => new THREE.Vector2(0.6, 0.6)) },   // 光体起点的半宽 / 半高
       uShaftL: { value: new Array(FOG_B).fill(5) },                                          // 光体长度
       uBeamI: { value: 0.22 },
-      uRoom: { value: new THREE.Vector4(-99, 99, -99, 99) }, uRoomY: { value: 0 }, uOutDim: { value: 0.22 },
+      // 聚光灯：光池中心（地面）、半径、灯高、光色；光池外的亮度比例
+      uSpot: { value: new THREE.Vector3(1, 0, 2.6) }, uSpotR: { value: 3.0 }, uSpotH: { value: 4.2 }, uSpotC: { value: new THREE.Color(1.0, 0.82, 0.6) }, uOutDim: { value: 0.3 },
       uSteps: { value: 16 },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -95,7 +96,7 @@ const World = (() => {
       uniform vec3 uLPos[NL]; uniform vec3 uLCol[NL]; uniform float uScatter;
       uniform vec3 uShaftP[NB]; uniform vec3 uShaftD[NB]; uniform vec3 uShaftC[NB]; uniform float uShaftA[NB];
       uniform vec2 uShaftW[NB]; uniform float uShaftL[NB]; uniform float uBeamI; uniform float uSteps;
-      uniform vec4 uRoom; uniform float uRoomY; uniform float uOutDim;
+      uniform vec3 uSpot; uniform float uSpotR; uniform float uSpotH; uniform vec3 uSpotC; uniform float uOutDim;
       varying vec2 vUv;
       float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
       float noise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -178,12 +179,30 @@ const World = (() => {
         }
         beams *= L / uSteps * uBeamI;
         // 当前房间之外：压暗（软边 0.5m），像灯只开在这一间
-        vec2 dxz = max(vec2(uRoom.x - hit.x, uRoom.z - hit.z), vec2(hit.x - uRoom.y, hit.z - uRoom.w));
-        float outside = smoothstep(-0.15, 0.45, max(dxz.x, dxz.y));
-        outside = max(outside, smoothstep(0.6, 1.2, abs(hit.y - uRoomY - 1.2) - 1.2));   // 楼层不同也算外面
+        // ---- 聚光灯：以主角为中心的圆形光池，光池外压暗 ----
+        // 光从主角头顶 uSpotH 米处往下打：越高处的圆越小（锥形），墙面也只亮靠近主角的那一段
+        float hh = clamp(hit.y - uSpot.y, 0.0, uSpotH);
+        float rr = uSpotR * (1.0 - 0.55 * hh / uSpotH);
+        float dsp = length(hit.xz - uSpot.xz);
+        float outside = smoothstep(rr * 0.55, rr, dsp);
+        outside = max(outside, smoothstep(0.2, 0.6, uSpot.y - hit.y));     // 低于主角所在地面（楼下）也算外面
         float keep = mix(1.0, uOutDim, outside);
         beams *= keep; inscat *= keep;
-        c.rgb = mix(c.rgb * keep, fc * mix(1.0, 0.45, outside), fog) + inscat * uScatter * (0.25 + fog) + beams * uScatter;
+        // 光锥体积：从灯口到地面的一束圆锥，雾在里面被照亮
+        vec3 apex = uSpot + vec3(0.0, uSpotH, 0.0);
+        vec3 coneAcc = vec3(0.0);
+        for (int j = 0; j < 12; j++) {
+          float tj = (float(j) + 0.5 + (n - 0.5) * 0.7) / 12.0;
+          vec3 q = ro + rd * (L * tj);
+          float down = apex.y - q.y;
+          if (down < 0.0 || down > uSpotH) continue;
+          float cr = uSpotR * (0.45 * down / uSpotH + 0.08) / 0.53;      // 圆锥半径：灯口小、到地面约 uSpotR
+          float rq = length(q.xz - apex.xz);
+          float m = 1.0 - smoothstep(cr * 0.55, cr, rq);
+          coneAcc += vec3(m * (0.45 + 0.55 * down / uSpotH) * (0.75 + 0.5 * noise(q * 1.3 + vec3(0.0, uTime * 0.08, 0.0))));
+        }
+        vec3 spotFog = uSpotC * coneAcc * (L / 12.0) * 0.14;
+        c.rgb = mix(c.rgb * keep, fc * mix(1.0, 0.4, outside), fog) + inscat * uScatter * (0.25 + fog) + beams * uScatter + spotFog * uScatter;
         gl_FragColor = c;
       }`,
   });
@@ -1557,9 +1576,16 @@ const World = (() => {
     plant: [-8.6, 2.6], storage: [-4.0, 3.0], entry: [1.0, 3.0], bath: [7.0, 3.2],
   };
   // 投影主光：暖色，模拟参考图里台灯/吊灯打在家具上的硬阴影
-  const keyLight = new THREE.PointLight(0xffc98a, 1.0, 10, 1.5);
-  keyLight.castShadow = true; keyLight.shadow.mapSize.set(1024, 1024); keyLight.shadow.bias = -0.003; keyLight.shadow.radius = 3;
+  // 房间里的补光：很弱、不投影，只让光池外的家具留个轮廓
+  const keyLight = new THREE.PointLight(0xffc98a, 0.5, 9, 1.6);
   root.add(keyLight);
+  // 聚光灯：从主角头顶往下打一个圆形光池，跟着主角移动（主投影光）
+  const spot = new THREE.SpotLight(0xffd6a0, 9.0, 12, 0.62, 0.5, 0.9);
+  spot.castShadow = true; spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -0.002; spot.shadow.radius = 4;
+  spot.shadow.camera.near = 0.5; spot.shadow.camera.far = 10;
+  spot.position.set(1, 4.2, 2.6); spot.target.position.set(1, 0, 2.6);
+  root.add(spot); root.add(spot.target);
+  const spotAt = new THREE.Vector3(1, 0, 2.6);
   const roomLights = {};
   Object.entries(ROOMS).forEach(([k, r]) => {
     const [x, z] = LAMP_POS[k];
@@ -1689,7 +1715,7 @@ const World = (() => {
   function updateFogLights() {
     if (!_fl.length || _fl.dirty) {
       _fl.length = 0;
-      root.traverse(o => { if (o.isPointLight && o !== keyLight && o.distance > 0) _fl.push(o); });
+      root.traverse(o => { if (o.isPointLight && !o.isSpotLight && o !== keyLight && o.distance > 0) _fl.push(o); });
     }
     const f = cam3.target;
     const cand = _fl.filter(l => l.visible && l.intensity > 0.05).map(l => { l.getWorldPosition(_v); return [l, _v.clone(), _v.distanceToSquared(f)]; })
@@ -1821,8 +1847,8 @@ const World = (() => {
       if (alarm) f *= 0.45 + pulse * 0.9;
       // 只有当前房间可见，所以当前房间总是亮的；剧情焦点房间更亮
       // 只有玩家所在的房间亮灯，别的房间关灯
-      L.l.intensity = (k === activeRoom ? Math.max(L.base, 1.0) : 0) * f;
-      L.cone.visible = k === activeRoom && f > 0.4;
+      L.l.intensity = (k === activeRoom ? 0.55 : 0) * f;   // 主光是跟着主角的聚光灯，房间灯只做很弱的底光
+      L.cone.visible = false;
     });
     const pa = dust.geometry.attributes.position.array;
     for (let i = 0; i < DUST; i++) {
@@ -1848,11 +1874,18 @@ const World = (() => {
     fogPass.uniforms.uTime.value = t;
     fogPass.uniforms.uBase.value += ((activeRoom && ROOMS[activeRoom].y < 0 ? -1.4 : 0) - fogPass.uniforms.uBase.value) * 0.05;
     updateFogLights();
-    if (activeRoom) {
-      const R = ROOMS[activeRoom], U = fogPass.uniforms, k = Math.min(1, dt * 4);
-      U.uRoom.value.x += (R.x0 - U.uRoom.value.x) * k; U.uRoom.value.y += (R.x1 - U.uRoom.value.y) * k;
-      U.uRoom.value.z += (R.z0 - U.uRoom.value.z) * k; U.uRoom.value.w += (R.z1 - U.uRoom.value.w) * k;
-      U.uRoomY.value += (R.y - U.uRoomY.value) * k;
+    {
+      // 光池略微滞后于主角（像有人在上面打追光），地面高度跟着楼层走
+      const pp = player.position, k = Math.min(1, dt * 5);
+      spotAt.x += (pp.x - spotAt.x) * k; spotAt.z += (pp.z - spotAt.z) * k;
+      spotAt.y += (floorY(pp.x, pp.z) - spotAt.y) * Math.min(1, dt * 8);
+      const H = fogPass.uniforms.uSpotH.value;
+      spot.position.set(spotAt.x, spotAt.y + H, spotAt.z);
+      spot.target.position.copy(spotAt); spot.target.updateMatrixWorld();
+      fogPass.uniforms.uSpot.value.copy(spotAt);
+      // 警报时光池变红并跟着脉冲
+      if (alarm) { spot.color.setRGB(1, 0.35, 0.3); spot.intensity = 6.0 + pulse * 4.0; fogPass.uniforms.uSpotC.value.setRGB(1.0, 0.3, 0.25); }
+      else { spot.color.set(0xffd6a0); spot.intensity = 9.0; fogPass.uniforms.uSpotC.value.setRGB(1.0, 0.82, 0.6); }
     }
     composer.render();
     requestAnimationFrame(loop);
@@ -1906,6 +1939,6 @@ const World = (() => {
     lamps: { lockLed, echoEye, echoLight, qingLight, glass, lampShade },
     statusLeds, blood, robot, shard, potG, roomRoot,
     toon, setTick(fn) { tick = fn; },
-    renderer, player, gradTex, cam3, root,
+    renderer, player, gradTex, cam3, root, spot,
   };
 })();
