@@ -4092,7 +4092,7 @@ const World = (() => {
         float hh = clamp(hit.y - uSpot.y, 0.0, uSpotH);
         float rr = uSpotR * (1.0 - 0.55 * hh / uSpotH);
         float dsp = length(hit.xz - uSpot.xz);
-        float outside = smoothstep(rr * 0.55, rr, dsp);
+        float outside = smoothstep(rr * 0.2, rr * 1.65, dsp);   // 过渡带很宽：光从中心慢慢渐暗
         outside = max(outside, smoothstep(0.2, 0.6, uSpot.y - hit.y));     // 低于主角所在地面（楼下）也算外面
         float keep = mix(1.0, uOutDim, outside);
         beams *= keep; inscat *= keep;
@@ -4106,7 +4106,7 @@ const World = (() => {
           if (down < 0.0 || down > uSpotH) continue;
           float cr = uSpotR * (0.45 * down / uSpotH + 0.08) / 0.53;      // 圆锥半径：灯口小、到地面约 uSpotR
           float rq = length(q.xz - apex.xz);
-          float m = 1.0 - smoothstep(cr * 0.55, cr, rq);
+          float m = 1.0 - smoothstep(cr * 0.15, cr * 1.5, rq);
           coneAcc += vec3(m * (0.45 + 0.55 * down / uSpotH) * (0.75 + 0.5 * noise(q * 1.3 + vec3(0.0, uTime * 0.08, 0.0))));
         }
         vec3 spotFog = uSpotC * coneAcc * (L / 12.0) * 0.14;
@@ -5488,7 +5488,7 @@ const World = (() => {
   const keyLight = new THREE.PointLight(0xffc98a, 0.5, 9, 1.6);
   root.add(keyLight);
   // 聚光灯：从主角头顶往下打一个圆形光池，跟着主角移动（主投影光）
-  const spot = new THREE.SpotLight(0xffd6a0, 9.0, 12, 0.62, 0.5, 0.9);
+  const spot = new THREE.SpotLight(0xffd6a0, 9.0, 13, 0.85, 0.95, 0.9);
   spot.castShadow = true; spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -0.002; spot.shadow.radius = 4;
   spot.shadow.camera.near = 0.5; spot.shadow.camera.far = 10;
   spot.position.set(1, 4.2, 2.6); spot.target.position.set(1, 0, 2.6);
