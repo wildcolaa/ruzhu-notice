@@ -664,6 +664,61 @@ button, input { font-family: inherit; }
 @media (max-width: 1180px) { .hero.disk { transform: scale(.66); } }
 @media (max-width: 820px) { .hero.disk { left: 6px; bottom: 6px; transform: scale(.5); } }
 @media (prefers-reduced-motion: reduce) { .dk-disc, .hero.disk.bump .dk-disc { animation: none; } .dk-fill { transition: none; } }
+
+/* ---- 手机：竖屏机身、刘海、状态栏、底部标签、Home 条 ---- */
+.sheet.phone {
+  width: min(340px, 92vw); height: min(680px, 88vh); max-height: none; padding: 0; overflow: hidden;
+  display: flex; flex-direction: column; border-radius: 42px;
+  box-shadow:
+    0 0 0 3px #0d1110, 0 0 0 10px #1d2422, 0 0 0 11px #3a4542, 0 -1px 0 11px #56625e,
+    inset 0 0 0 1px rgba(143,245,210,.1), inset 0 0 40px rgba(0,0,0,.85),
+    0 30px 70px rgba(0,0,0,.7);
+}
+.sheet.phone::before { content: none; }
+.sheet.phone::after { border-radius: 42px; }
+/* 侧键 */
+.ph-notch { position: relative; height: 30px; flex: none; display: grid; place-items: center; }
+.ph-notch i { width: 96px; height: 24px; border-radius: 0 0 14px 14px; background: #0b0e0d; margin-top: -6px; box-shadow: inset 0 -1px 0 rgba(143,245,210,.08); position: relative; }
+.ph-notch i::after { content: ""; position: absolute; right: 22px; top: 7px; width: 8px; height: 8px; border-radius: 50%; background: #11201b; box-shadow: inset 0 0 0 2px #1a2a25; }
+.ph-status { position: absolute; top: 9px; left: 30px; right: 26px; display: flex; justify-content: space-between; font: 600 12px/1 var(--mono); color: var(--ph); letter-spacing: .04em; z-index: 2; }
+.ph-icons { display: flex; gap: 6px; align-items: center; }
+.ph-icons svg { fill: currentColor; color: var(--ph); }
+.ph-icons .ph-low { fill: var(--warn); animation: blink 1s steps(1) infinite; }
+.ph-app { flex: none; padding: 10px 22px 10px; border-bottom: 1px solid var(--ph-faint); display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ph-app b { font: 700 18px/1 var(--mono); letter-spacing: .14em; color: var(--ph-hi); }
+.ph-app span { font: 11px/1 var(--mono); color: var(--ph-dim); }
+.ph-app .warn { font-style: normal; }
+.ph-body { flex: 1; overflow: auto; padding: 14px 18px 10px; scrollbar-width: thin; scrollbar-color: var(--ph-dim) transparent; display: flex; flex-direction: column; }
+.ph-body h3 { font: 600 11px/1.4 var(--mono); letter-spacing: .14em; color: var(--ph-dim); margin: 4px 0 10px; text-transform: uppercase; }
+.ph-body h3 .hint { font: inherit; letter-spacing: .06em; text-transform: none; margin-left: 6px; opacity: .8; }
+.ph-list { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ph-list li { font: 13px/1.6 var(--mono); color: var(--ph); padding: 9px 11px; border-radius: 12px; background: rgba(143,245,210,.06); box-shadow: inset 0 0 0 1px rgba(143,245,210,.14); }
+.sheet.phone li { padding-left: 11px; }
+.sheet.phone li::before { content: none; }
+.ph-feed li time { display: block; font-size: 10px; color: var(--ph-dim); letter-spacing: .1em; margin-bottom: 2px; }
+.ph-empty { color: var(--ph-dim) !important; background: none !important; box-shadow: none !important; text-align: center; font: 12px/1.6 var(--mono); }
+.ph-body .rawlog { font-size: 11px; }
+/* 小饱聊天：气泡 */
+.ph-chat { flex: 1; max-height: none; display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 8px; }
+.ph-chat .bub { max-width: 80%; margin: 0; padding: 8px 12px; border-radius: 16px; font: 13px/1.55 var(--mono); }
+.ph-chat .bub-it { align-self: flex-start; background: rgba(143,245,210,.09); color: var(--ph); border-bottom-left-radius: 4px; box-shadow: inset 0 0 0 1px rgba(143,245,210,.16); }
+.ph-chat .bub-me { align-self: flex-end; background: var(--ph-dim); color: #04110d; text-shadow: none; border-bottom-right-radius: 4px; }
+.sheet.phone .row { margin-top: 6px; }
+.sheet.phone .row input { border-radius: 18px; padding-left: 14px; }
+.sheet.phone .mic { border-radius: 50%; width: 40px; height: 40px; flex: none; }
+.sheet.phone .ph-send { width: 40px; height: 40px; flex: none; border-radius: 50%; padding: 0; font: 700 16px/1 var(--mono); }
+.sheet.phone #vstatus { margin: 4px 0 0; font-size: 11px; min-height: 0; }
+/* 底部标签栏 + Home 条 */
+.ph-tabs { flex: none; display: flex; border-top: 1px solid var(--ph-faint); padding: 6px 12px 4px; gap: 6px; }
+.ph-tabs button { flex: 1; min-height: 40px; border: 0; background: transparent; border-radius: 12px; cursor: pointer;
+  font: 600 12px/1 var(--mono); letter-spacing: .12em; color: var(--ph-dim); box-shadow: none; }
+.ph-tabs button.on { color: var(--ph-hi); background: rgba(143,245,210,.08); text-shadow: var(--ph-glow); }
+.ph-tabs button:hover { color: var(--ph); }
+.ph-tabs button:focus-visible, .ph-home:focus-visible { outline: 2px solid var(--ph); outline-offset: 2px; }
+.ph-home { flex: none; align-self: center; width: 120px; height: 5px; margin: 6px 0 10px; border: 0; padding: 0; border-radius: 3px; cursor: pointer;
+  background: var(--ph-dim); box-shadow: 0 0 8px rgba(80,255,210,.35); }
+.ph-home:hover { background: var(--ph); }
+.ph-home::before { content: ""; display: block; margin: -10px 0; height: 25px; }   /* 放大点击区域 */
 </style>
 </head>
 <body>

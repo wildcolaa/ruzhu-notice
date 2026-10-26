@@ -209,19 +209,38 @@ function showNotice() {
     <div class="choices"><button id="x">合上</button></div>`, sh => sh.querySelector('#x').onclick = closeModal);
 }
 
-// ---------- 手机：智能家居 App（日志/记录）+ 小饱 ----------
-function openPhone() {
-  const ev = Object.entries(EVIDENCE).filter(([k]) => has(k)).map(([, e]) => `<li>${esc(e.text)}</li>`).join('') || '<li>还没有导出任何原始记录。</li>';
-  const log = NPC.LOG.slice(-12).reverse().map(l => `<li>${esc(l)}</li>`).join('') || '<li>暂无住宅动态。</li>';
-  const raw = has('raw_timeline') ? `<h3>原始时间线</h3><pre class="rawlog">${RAW_TIMELINE.map(esc).join('\n')}</pre>` : '';
-  openModal(`<h2>住家 · 智能家居</h2>
-    <p class="hint">住户状态：${S.day === 3 ? '<b class="warn">资格已终止</b>' : '已确认'}${S.day === 3 ? ` · 备用电力 ${S.power}` : ''}</p>
-    <h3>已导出的原始记录</h3><ul>${ev}</ul>${raw}
-    <h3>住宅动态</h3><ul>${log}</ul>
-    <div class="choices"><button id="xb">打开「小饱」聊天</button><button id="x">收起手机</button></div>`, sh => {
-    sh.querySelector('#x').onclick = closeModal;
-    sh.querySelector('#xb').onclick = () => { closeModal(); openChat('xiaobao'); };
-  });
+// ---------- 手机：智能家居 App（记录 / 动态 / 小饱）----------
+// 外形是一台竖屏手机：刘海、状态栏、底部三个标签、Home 条。弹窗 .sheet 加 .phone 类换皮肤。
+function phoneShell(body, tab) {
+  const tabs = [['rec', '记录'], ['log', '动态'], ['xb', '小饱']];
+  const lowBat = S.day === 3;
+  return `<div class="ph-notch" aria-hidden="true"><i></i></div>
+    <div class="ph-status" aria-hidden="true"><span>${esc(clockText())}</span><span class="ph-icons">
+      <svg viewBox="0 0 16 10" width="15" height="10"><rect x="0" y="7" width="3" height="3"/><rect x="4" y="5" width="3" height="5"/><rect x="8" y="2.5" width="3" height="7.5"/><rect x="12" y="0" width="3" height="10" opacity="${S.day === 3 ? '.25' : '1'}"/></svg>
+      <svg viewBox="0 0 22 10" width="20" height="10"><rect x=".5" y=".5" width="18" height="9" rx="2" fill="none" stroke="currentColor"/><rect x="2" y="2" width="${lowBat ? 3 : 12}" height="6" rx="1" class="${lowBat ? 'ph-low' : ''}"/><rect x="19.5" y="3" width="2" height="4" rx="1"/></svg></span></div>
+    <div class="ph-app"><b>住家</b><span>${S.day === 3 ? '<em class="warn">资格已终止</em>' : '住户 · 已确认'}${S.day === 3 ? ` · 备用电力 ${S.power}` : ''}</span></div>
+    <div class="ph-body" id="phBody">${body}</div>
+    <nav class="ph-tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === tab}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</nav>
+    <button class="ph-home" id="phHome" aria-label="收起手机"></button>`;
+}
+function openPhone(tab) {
+  if (typeof tab !== 'string') tab = 'rec';   // 按钮 onclick 会把事件对象传进来
+  if (tab === 'xb') return openChat('xiaobao', { phone: true });
+  let body;
+  if (tab === 'rec') {
+    const ev = Object.entries(EVIDENCE).filter(([k]) => has(k)).map(([, e]) => `<li>${esc(e.text)}</li>`).join('') || '<li class="ph-empty">还没有导出任何原始记录。</li>';
+    const raw = has('raw_timeline') ? `<h3>原始时间线</h3><pre class="rawlog">${RAW_TIMELINE.map(esc).join('\n')}</pre>` : '';
+    body = `<h3>已导出的原始记录 · ${evidenceCount()} / ${Object.keys(EVIDENCE).length}</h3><ul class="ph-list">${ev}</ul>${raw}`;
+  } else {
+    const log = NPC.LOG.slice(-20).reverse().map(l => { const m = /^(\d\d:\d\d)\s+(.*)$/.exec(l); return m ? `<li><time>${esc(m[1])}</time>${esc(m[2])}</li>` : `<li>${esc(l)}</li>`; }).join('') || '<li class="ph-empty">暂无住宅动态。</li>';
+    body = `<h3>住宅动态</h3><ul class="ph-list ph-feed">${log}</ul>`;
+  }
+  openModal(phoneShell(body, tab), sh => wirePhone(sh));
+}
+function wirePhone(sh) {
+  sh.classList.add('phone');
+  sh.querySelector('#phHome').onclick = closeModal;
+  sh.querySelectorAll('.ph-tabs button').forEach(b => b.onclick = () => { const t = b.dataset.tab; closeModal(); openPhone(t); });
 }
 
 // ---------- 语音输入：按住空格说话，松开发送 ----------
@@ -302,7 +321,8 @@ let detachVoice = null;
 function ctxSummary() {
   return `第${S.day}天，${clockText()}。已发现：${S.clues.slice(-6).join('；') || '无'}。独立记录 ${evidenceCount()} 份。`;
 }
-async function openChat(id) {
+async function openChat(id, opt) {
+  opt = opt || {};
   const a = AGENTS[id];
   S.chat[id] = S.chat[id] || [];
   const hist = S.chat[id];
@@ -312,9 +332,18 @@ async function openChat(id) {
     <div class="row"><input id="msg" placeholder="按住空格说话，或打字后回车" aria-label="对设备说话" autocomplete="off"/><button class="mic" id="mic" type="button" aria-label="按住说话" title="按住说话"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="primary" id="send" style="margin-top:0">发送</button></div>
     <p class="hint" id="vstatus" aria-live="polite"></p>
     <button class="primary" id="bye">结束对话</button>`;
-  openModal(html, async sh => {
+  const body = opt.phone
+    ? `<h3>小饱 · 手机陪伴 <span class="hint">${esc(NPC.aiLabel())}</span></h3>
+      <div class="chatlog ph-chat" id="log" aria-live="polite"></div>
+      <div class="row"><input id="msg" placeholder="按住空格说话，或打字回车" aria-label="对小饱说话" autocomplete="off"/>${html.match(/<button class="mic"[\s\S]*?<\/button>/)[0]}<button id="send" class="ph-send" type="button" aria-label="发送">↑</button></div>
+      <p class="hint" id="vstatus" aria-live="polite"></p><button id="bye" hidden></button>`
+    : html;
+  openModal(opt.phone ? phoneShell(body, 'xb') : body, async sh => {
+    if (opt.phone) wirePhone(sh);
     const log = sh.querySelector('#log');
-    const render = () => { log.innerHTML = hist.map(h => `<p><span class="${h.who === 'me' ? 'me' : 'who'}">${h.who === 'me' ? '你' : esc(a.name)}：</span>${esc(h.text)}</p>`).join(''); log.scrollTop = 1e6; };
+    const render = opt.phone
+      ? () => { log.innerHTML = hist.map(h => `<p class="bub ${h.who === 'me' ? 'bub-me' : 'bub-it'}">${esc(h.text)}</p>`).join('') || '<p class="ph-empty">和小饱说点什么吧。</p>'; log.scrollTop = 1e6; }
+      : () => { log.innerHTML = hist.map(h => `<p><span class="${h.who === 'me' ? 'me' : 'who'}">${h.who === 'me' ? '你' : esc(a.name)}：</span>${esc(h.text)}</p>`).join(''); log.scrollTop = 1e6; };
     let busy = false;
     const speak = async msg => {
       if (busy) return; busy = true;
