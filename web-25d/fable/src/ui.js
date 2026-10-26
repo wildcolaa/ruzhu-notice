@@ -36,6 +36,30 @@ function clue(text) {
 }
 function evidenceCount() { return Object.keys(EVIDENCE).filter(k => has(k)).length; }
 
+// 软盘标签上的像素字：小字号画进画布、二值化，再按像素放大显示（CSS image-rendering: pixelated）
+// 描边用亮荧光，字心用暗荧光，像参考图里那种空心点阵字
+function pixTitle(cv, lines, bright) {
+  const key = lines.join('|') + bright; if (!cv || cv.dataset.k === key) return; cv.dataset.k = key;
+  const F = 13, W = F * 2 + 2, H = lines.length * (F + 2) + 2;
+  const t = document.createElement('canvas'); t.width = W; t.height = H;
+  const g = t.getContext('2d');
+  g.fillStyle = '#fff'; g.font = `900 ${F}px "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif`; g.textBaseline = 'top';
+  lines.forEach((l, i) => g.fillText(l, 1, 1 + i * (F + 2)));
+  const src = g.getImageData(0, 0, W, H).data, on = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) on[i] = src[i * 4 + 3] > 96 ? 1 : 0;
+  cv.width = W; cv.height = H;
+  const o = cv.getContext('2d'), out = o.createImageData(W, H);
+  const css = getComputedStyle(document.documentElement);
+  const hex = h => { h = h.trim().replace('#', ''); return [0, 2, 4].map(k => parseInt(h.substr(k, 2), 16)); };
+  const hi = hex(css.getPropertyValue(bright ? '--ph-hi' : '--ph') || '#8ff5d2'), lo = hex(css.getPropertyValue('--ph-dim') || '#4fae92');
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x; if (!on[i]) continue;
+    const edge = x === 0 || y === 0 || x === W - 1 || y === H - 1 || !on[i - 1] || !on[i + 1] || !on[i - W] || !on[i + W];
+    const c = edge ? hi : lo, d = i * 4;
+    out.data[d] = c[0]; out.data[d + 1] = c[1]; out.data[d + 2] = c[2]; out.data[d + 3] = edge ? 255 : ((x + y) % 2 ? 150 : 230);
+  }
+  o.putImageData(out, 0, 0);
+}
 function paintBadge() {
   // 软盘标签：铅笔侧颜 + 黑色刷痕（fable/ui/portrait.webp、grunge.webp）
   const el = $('badge'); if (!el) return;
@@ -44,6 +68,8 @@ function paintBadge() {
   else if (window.BADGE_SRC) el.innerHTML = `<img alt="" src="${window.BADGE_SRC}">`;
   const gr = document.querySelector('.dk-grunge');
   if (gr && img.grunge) gr.style.backgroundImage = `url(${img.grunge})`;
+  const dc = document.querySelector('.dk-disc');
+  if (dc && img.disc) dc.style.backgroundImage = `url(${img.disc})`;
 }
 
 // ---------- 模态 ----------
@@ -152,7 +178,7 @@ function refreshHUD() {
   const hero = $('hero');
   if (hero) {
     hero.classList.toggle('found', n >= total);
-    $('dkTitle').innerHTML = n >= total ? '找到<br>我了。' : '能找到<br>我吗？';
+    pixTitle($('dkTitle'), n >= total ? ['找到', '你了'] : ['还在', '里面'], n >= total);
     hero.setAttribute('aria-label', `原始记录 ${n} / ${total}`);
     if (refreshHUD._n != null && n > refreshHUD._n) { hero.classList.remove('bump'); void hero.offsetWidth; hero.classList.add('bump'); }
     refreshHUD._n = n;

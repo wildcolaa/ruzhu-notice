@@ -599,66 +599,69 @@ button, input { font-family: inherit; }
 @keyframes rkwh { 0%,100% { opacity: .2; } 50% { opacity: .9; } }
 @media (prefers-reduced-motion: reduce) { #app.rk-hit .viewport, #app.rk-glitch canvas, #app.rk-flick canvas, .rk-stamp, .rk-whisper { animation: none; } }
 
-/* ---- 左下：软盘标签（参考印刷软盘：浅灰机身、铅笔侧颜、金属快门、深色标签、红色贴纸）---- */
+/* ---- 左下：软盘标签（排版参考印刷软盘：左侧深色标签、中间快门窗与盘片、右侧铅笔侧颜、左下黑色外套）----
+   亮色统一换成全局的荧光暗绿（--ph 系列），和其它终端屏一个色调 */
 .hero.disk {
-  --dk-body: #cfcfcb; --dk-ink: #1d1d1d; --dk-acc: #e2322a; --dk-acc-hi: #ff6a5c; --dk-acc-ink: #fff2ee;
-  left: 16px; bottom: 16px; width: 388px; height: 172px; padding: 0; display: block; gap: 0;
-  background: var(--dk-body); color: var(--dk-ink); text-shadow: none; border-radius: 0;
-  /* 软盘外轮廓：右上倒角、上沿两个卡口、下沿两个缺口 */
-  clip-path: polygon(0 4px, 4px 0, 70px 0, 70px 5px, 86px 5px, 86px 0, 238px 0, 238px 5px, 246px 5px, 246px 0, 376px 0, 388px 12px,
-    388px 128px, 381px 128px, 381px 140px, 388px 140px, 388px 172px, 4px 172px, 0 168px, 0 140px, 7px 140px, 7px 128px, 0 128px);
-  box-shadow: none; filter: drop-shadow(0 10px 22px rgba(0,0,0,.55));
-  overflow: hidden; isolation: isolate;
+  --dk-body: #b3b8b3; --dk-acc: var(--ph); --dk-acc-dim: var(--ph-dim); --dk-tagbg: #0f3a2f;
+  left: 16px; bottom: 16px; width: 252px; height: 262px; padding: 0; display: block;
+  background: var(--dk-body); color: #1d1d1d; text-shadow: none; border-radius: 0;
+  /* 外轮廓：右上圆角、上沿中间一个小卡口、两侧下方缺口 */
+  clip-path: path("M0 3 Q0 0 3 0 L156 0 L156 4 L166 4 L166 0 L241 0 Q252 0 252 11 L252 228 L246 228 Q243 228 243 231 L243 236 Q243 239 246 239 L252 239 L252 262 L0 262 L0 239 L6 239 Q9 239 9 236 L9 231 Q9 228 6 228 L0 228 Z");
+  box-shadow: none; filter: drop-shadow(0 10px 22px rgba(0,0,0,.6)); overflow: hidden; isolation: isolate;
 }
 .hero.disk::after { content: none; }
-/* 纸面颗粒 */
-.hero.disk::before { content: ""; position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: .35; mix-blend-mode: multiply;
-  background: repeating-linear-gradient(90deg, rgba(0,0,0,.04) 0 1px, transparent 1px 3px), repeating-linear-gradient(0deg, rgba(0,0,0,.03) 0 1px, transparent 1px 4px); }
-.dk-face { position: absolute; left: -6px; top: -4px; width: 176px; height: 210px; z-index: 1;
-  background: center top / cover no-repeat; border: 0; border-radius: 0; box-shadow: none; }
+.hero.disk::before { content: ""; position: absolute; inset: 0; z-index: 9; pointer-events: none; opacity: .4; mix-blend-mode: multiply;
+  background: repeating-linear-gradient(90deg, rgba(0,0,0,.05) 0 1px, transparent 1px 3px), repeating-linear-gradient(0deg, rgba(0,0,0,.035) 0 1px, transparent 1px 4px); }
+/* 右侧：铅笔侧颜（脸朝右） */
+.dk-face { position: absolute; left: 120px; top: 26px; width: 152px; height: 182px; z-index: 1;
+  background: center top / contain no-repeat; border: 0; border-radius: 0; box-shadow: none; }
 .dk-face img { display: none; }
-.dk-grunge { position: absolute; left: 92px; right: 0; bottom: -2px; height: 62px; z-index: 2; background: left top / 100% 100% no-repeat; }
-/* 金属快门窗：里面露出一张故障色的盘片 */
-.dk-shutter { position: absolute; left: 150px; top: 10px; width: 96px; height: 138px; z-index: 3;
-  background: linear-gradient(180deg, #f4f4f2, #e2e2df); border: 1px solid #a9a9a5; border-radius: 6px 6px 3px 3px;
-  box-shadow: inset 0 0 0 4px #ececea, inset 0 0 0 5px #bdbdb9; overflow: hidden; }
-.dk-disc { position: absolute; left: 50%; top: 24px; width: 118px; height: 118px; margin-left: -59px; border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%, #2b2b2b 0 15px, #6b6b6b 16px 18px, #3a3a3a 19px 29px, transparent 30px),
-    repeating-linear-gradient(90deg, rgba(255,255,255,.18) 0 2px, transparent 2px 7px),
-    conic-gradient(from 200deg, var(--dk-g1, #ff2f6d), var(--dk-g2, #ff7a2a), var(--dk-g3, #b0247a), var(--dk-g1, #ff2f6d) 60%, var(--dk-g2, #ff7a2a), var(--dk-g3, #b0247a));
-  box-shadow: 0 0 0 1px rgba(0,0,0,.25); animation: dkspin 18s linear infinite; }
-.dk-hub { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: #0c0c0c; box-shadow: 0 0 0 2px #888; }
-/* 盘片下半被暗色护板盖住 */
-.dk-shutter::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: 6px; height: 40px; border-radius: 0 0 40px 40px / 0 0 24px 24px;
-  background: linear-gradient(180deg, #4a4a4a, #2c2c2c); opacity: .85; }
+/* 左下：黑色外套，斜着压到侧颜下巴下面 */
+.dk-grunge { position: absolute; left: 0; top: 14px; width: 236px; height: 248px; z-index: 2; background: left top / 100% 100% no-repeat; }
+/* 左上：标签后面的深色像素条 */
+.dk-band { position: absolute; left: 4px; top: 0; width: 156px; height: 16px; z-index: 3;
+  background: repeating-linear-gradient(90deg, #2c2c2c 0 9px, #353535 9px 13px, #262626 13px 21px); opacity: .92; }
+/* 左侧深色标签 */
+.dk-label { position: absolute; left: 4px; top: 0; width: 74px; height: 208px; z-index: 4; background: #2a2b2a;
+  box-shadow: inset 0 0 0 1px #3d3f3d; }
+.dk-arrow { position: absolute; top: 4px; left: 50%; margin-left: -5px; width: 10px; height: 13px; background: var(--dk-acc);
+  clip-path: polygon(50% 0, 100% 48%, 68% 48%, 68% 100%, 32% 100%, 32% 48%, 0 48%); filter: drop-shadow(0 0 3px rgba(80,255,210,.6)); }
+.dk-inner { position: absolute; left: 6px; right: 6px; top: 22px; bottom: 8px; border-radius: 6px; box-shadow: inset 0 0 0 1px #6a6e6a;
+  display: flex; flex-direction: column; align-items: center; padding: 10px 4px 5px; box-sizing: border-box; }
+.dk-title { width: 56px; image-rendering: pixelated; filter: drop-shadow(0 0 3px rgba(80,255,210,.45)); }
+.dk-code { margin-top: 8px; font: 600 7px/1 var(--mono); letter-spacing: .1em; color: var(--dk-acc); text-shadow: var(--ph-glow); white-space: nowrap; }
+.dk-tag { margin-top: auto; width: 100%; box-sizing: border-box; padding: 5px 3px 5px; border-radius: 5px; text-align: center;
+  background: radial-gradient(ellipse at 50% 30%, #17503f, var(--dk-tagbg)); box-shadow: inset 0 0 0 1px rgba(143,245,210,.35), 0 0 8px rgba(80,255,210,.18);
+  color: var(--dk-acc); text-shadow: var(--ph-glow); }
+.dk-n { font: 700 17px/1 "DIN Condensed", "Arial Narrow", var(--mono); letter-spacing: 0; white-space: nowrap; }
+.dk-sub { font: 600 6.5px/1.25 var(--mono); letter-spacing: .04em; margin-top: 3px; color: var(--dk-acc-dim); }
+.dk-bar { height: 2px; margin-top: 4px; background: rgba(143,245,210,.12); }
+.dk-fill { height: 100%; width: 0; background: var(--dk-acc); box-shadow: 0 0 4px rgba(80,255,210,.7); transition: width .5s; }
+/* 中间：快门窗。上半白底露出盘片，下面是暗色护板 + 盘心 */
+.dk-win { position: absolute; left: 84px; top: 18px; width: 84px; height: 190px; z-index: 5; border-radius: 7px 7px 2px 2px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.75), inset 0 0 0 2px rgba(0,0,0,.12); background: rgba(235,238,235,.18); }
+.dk-top { position: absolute; left: 3px; right: 3px; top: 3px; height: 112px; border-radius: 6px 6px 0 0; overflow: hidden; background: #f1f2f0; }
+.dk-disc { position: absolute; left: 50%; top: 22px; width: 100px; height: 100px; margin-left: -50px; border-radius: 50%;
+  background: center / cover no-repeat; box-shadow: 0 0 0 1px rgba(0,0,0,.3); animation: dkspin 24s linear infinite; }
+.dk-cres { position: absolute; left: -2px; right: -2px; bottom: 0; height: 26px; background: linear-gradient(180deg, #5a5d5a, #3a3c3a);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0; box-shadow: 0 -1px 0 rgba(0,0,0,.4); }
+.dk-hub { position: absolute; left: 50%; top: 122px; width: 50px; height: 50px; margin-left: -25px; border-radius: 50%;
+  background: radial-gradient(circle, #f0f0f0 0 6px, #111 7px 9px, #3c3e3c 10px 15px, #222 16px 18px, #4a4c4a 19px 23px, #2a2b2a 24px);
+  box-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.dk-hub::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 30deg, transparent 0 20%, rgba(255,255,255,.12) 22% 30%, transparent 32% 70%, rgba(255,255,255,.1) 72% 78%, transparent 80%); }
 @keyframes dkspin { to { transform: rotate(360deg); } }
-/* 深色标签 */
-.dk-label { position: absolute; left: 256px; top: 8px; width: 120px; height: 156px; z-index: 4; box-sizing: border-box; padding: 18px 8px 8px;
-  background: #262626; border-radius: 6px; box-shadow: inset 0 0 0 1px #4a4a4a, inset 0 0 0 4px #262626, inset 0 0 0 5px #3a3a3a;
-  display: flex; flex-direction: column; align-items: center; }
-.dk-arrow { position: absolute; top: -9px; left: 50%; margin-left: -6px; width: 12px; height: 15px; background: var(--dk-acc);
-  clip-path: polygon(50% 0, 100% 45%, 68% 45%, 68% 100%, 32% 100%, 32% 45%, 0 45%); }
-.dk-title { font: 900 17px/1.08 var(--mono); letter-spacing: .06em; text-align: center; color: #262626;
-  -webkit-text-stroke: 1.2px var(--dk-acc-hi); paint-order: stroke; text-shadow: 0 0 1px var(--dk-acc-hi); }
-.dk-code { margin-top: 4px; font: 600 8px/1 var(--mono); letter-spacing: .14em; color: var(--dk-acc-hi); }
-.dk-tag { margin-top: auto; width: 100%; box-sizing: border-box; padding: 5px 6px 6px; border-radius: 6px; background: var(--dk-acc); color: var(--dk-acc-ink); text-align: center; }
-.dk-n { font: 700 21px/1 "DIN Condensed", "Arial Narrow", var(--mono); letter-spacing: .02em; }
-.dk-sub { font: 600 8px/1.2 var(--mono); letter-spacing: .04em; margin-top: 3px; opacity: .9; white-space: nowrap; }
-.dk-bar { height: 3px; margin-top: 5px; background: rgba(0,0,0,.28); }
-.dk-fill { height: 100%; width: 0; background: var(--dk-acc-ink); transition: width .5s; }
-/* 写保护孔与色块 */
-.dk-wp { position: absolute; bottom: 30px; width: 12px; height: 7px; background: #fff; border: 1px solid #333; z-index: 5; }
-.dk-wp-l { left: 12px; } .dk-wp-r { right: 14px; }
-.dk-sq { position: absolute; bottom: 9px; width: 18px; height: 6px; background: var(--dk-acc); z-index: 5; }
-.dk-sq-l { left: 20px; } .dk-sq-r { right: 22px; box-shadow: -10px 0 0 rgba(0,0,0,.25); }
-/* 六份记录齐了：换成第二张软盘的黄色——「找到我了。」 */
-.hero.disk.found { --dk-acc: #f2d21b; --dk-acc-hi: #ffe94d; --dk-acc-ink: #3a3200; --dk-g1: #ffd400; --dk-g2: #ff8a00; --dk-g3: #c8e000; }
-.hero.disk.found .dk-tag { color: #6a5d00; }
-.hero.disk.bump .dk-disc { animation: dkspin 18s linear infinite, dkbump .7s ease-out; }
-@keyframes dkbump { 30% { filter: brightness(1.6) saturate(1.6); } }
-@media (max-width: 1180px) { .hero.disk { transform: scale(.75); transform-origin: left bottom; } }
-@media (max-width: 820px) { .hero.disk { left: 6px; bottom: 6px; transform: scale(.62); transform-origin: left bottom; } }
+/* 写保护孔与荧光色块 */
+.dk-wp { position: absolute; top: 212px; width: 10px; height: 6px; background: #fff; box-shadow: 0 0 0 1px #2a2a2a; z-index: 6; }
+.dk-wp-l { left: 9px; } .dk-wp-r { right: 14px; }
+.dk-sq { position: absolute; top: 246px; height: 6px; z-index: 6; background: var(--dk-acc); box-shadow: 0 0 6px rgba(80,255,210,.55); }
+.dk-sq-l { left: 18px; width: 24px; background: linear-gradient(90deg, var(--dk-acc) 0 60%, var(--dk-acc-dim) 60%); }
+.dk-sq-r { right: 20px; width: 12px; }
+/* 六份记录齐了：荧光更亮，标题换成「找到 / 你了」 */
+.hero.disk.found { --dk-acc: var(--ph-hi); --dk-acc-dim: var(--ph); --dk-tagbg: #155443; }
+.hero.disk.bump .dk-disc { animation: dkspin 24s linear infinite, dkbump .7s ease-out; }
+@keyframes dkbump { 30% { filter: brightness(1.7) saturate(1.5); } }
+@media (max-width: 1180px) { .hero.disk { transform: scale(.8); transform-origin: left bottom; } }
+@media (max-width: 820px) { .hero.disk { left: 6px; bottom: 6px; transform: scale(.55); } }
 @media (prefers-reduced-motion: reduce) { .dk-disc, .hero.disk.bump .dk-disc { animation: none; } .dk-fill { transition: none; } }
 </style>
 </head>
@@ -716,18 +719,22 @@ button, input { font-family: inherit; }
       <div class="hero disk" id="hero" role="status" aria-label="原始记录进度">
         <div class="dk-face" id="badge" aria-hidden="true"></div>
         <div class="dk-grunge" aria-hidden="true"></div>
-        <div class="dk-shutter" aria-hidden="true">
-          <div class="dk-disc"><i class="dk-hub"></i></div>
-        </div>
+        <div class="dk-band" aria-hidden="true"></div>
         <div class="dk-label">
           <b class="dk-arrow" aria-hidden="true"></b>
-          <div class="dk-title" id="dkTitle">能找到<br>我吗？</div>
-          <div class="dk-code">ZL·0217</div>
-          <div class="dk-tag">
-            <div class="dk-n" id="plabel">0 / 6</div>
-            <div class="dk-sub">原始记录 · RAW LOG</div>
-            <div class="dk-bar"><div class="dk-fill" id="pfill"></div></div>
+          <div class="dk-inner">
+            <canvas class="dk-title" id="dkTitle" aria-hidden="true"></canvas>
+            <div class="dk-code">ZL·0217</div>
+            <div class="dk-tag">
+              <div class="dk-n" id="plabel">0 / 6</div>
+              <div class="dk-sub">原始记录<br>RAW LOG</div>
+              <div class="dk-bar"><div class="dk-fill" id="pfill"></div></div>
+            </div>
           </div>
+        </div>
+        <div class="dk-win" aria-hidden="true">
+          <div class="dk-top"><div class="dk-disc"></div><i class="dk-cres"></i></div>
+          <i class="dk-hub"></i>
         </div>
         <i class="dk-wp dk-wp-l" aria-hidden="true"></i><i class="dk-wp dk-wp-r" aria-hidden="true"></i>
         <i class="dk-sq dk-sq-l" aria-hidden="true"></i><i class="dk-sq dk-sq-r" aria-hidden="true"></i>
