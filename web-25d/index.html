@@ -3919,7 +3919,7 @@ const World = (() => {
   renderer.outputEncoding = THREE.sRGBEncoding;
 
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.95;
+  renderer.toneMappingExposure = 0.9;
 
   const NIGHT_BG = 0x050505;
   const scene = new THREE.Scene();
@@ -3989,7 +3989,8 @@ const World = (() => {
       uShaftA: { value: new Array(FOG_B).fill(0.1) },
       uShaftW: { value: Array.from({ length: FOG_B }, () => new THREE.Vector2(0.6, 0.6)) },   // 光体起点的半宽 / 半高
       uShaftL: { value: new Array(FOG_B).fill(5) },                                          // 光体长度
-      uBeamI: { value: 0.3 },
+      uBeamI: { value: 0.22 },
+      uRoom: { value: new THREE.Vector4(-99, 99, -99, 99) }, uRoomY: { value: 0 }, uOutDim: { value: 0.22 },
       uSteps: { value: 16 },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -4002,6 +4003,7 @@ const World = (() => {
       uniform vec3 uLPos[NL]; uniform vec3 uLCol[NL]; uniform float uScatter;
       uniform vec3 uShaftP[NB]; uniform vec3 uShaftD[NB]; uniform vec3 uShaftC[NB]; uniform float uShaftA[NB];
       uniform vec2 uShaftW[NB]; uniform float uShaftL[NB]; uniform float uBeamI; uniform float uSteps;
+      uniform vec4 uRoom; uniform float uRoomY; uniform float uOutDim;
       varying vec2 vUv;
       float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
       float noise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -4083,7 +4085,13 @@ const World = (() => {
           beams += uShaftC[i] * acc * phase;
         }
         beams *= L / uSteps * uBeamI;
-        c.rgb = mix(c.rgb, fc, fog) + inscat * uScatter * (0.25 + fog) + beams * uScatter;
+        // 当前房间之外：压暗（软边 0.5m），像灯只开在这一间
+        vec2 dxz = max(vec2(uRoom.x - hit.x, uRoom.z - hit.z), vec2(hit.x - uRoom.y, hit.z - uRoom.w));
+        float outside = smoothstep(-0.15, 0.45, max(dxz.x, dxz.y));
+        outside = max(outside, smoothstep(0.6, 1.2, abs(hit.y - uRoomY - 1.2) - 1.2));   // 楼层不同也算外面
+        float keep = mix(1.0, uOutDim, outside);
+        beams *= keep; inscat *= keep;
+        c.rgb = mix(c.rgb * keep, fc * mix(1.0, 0.45, outside), fog) + inscat * uScatter * (0.25 + fog) + beams * uScatter;
         gl_FragColor = c;
       }`,
   });
@@ -5457,7 +5465,7 @@ const World = (() => {
     plant: [-8.6, 2.6], storage: [-4.0, 3.0], entry: [1.0, 3.0], bath: [7.0, 3.2],
   };
   // 投影主光：暖色，模拟参考图里台灯/吊灯打在家具上的硬阴影
-  const keyLight = new THREE.PointLight(0xffc98a, 1.6, 11, 1.4);
+  const keyLight = new THREE.PointLight(0xffc98a, 1.0, 10, 1.5);
   keyLight.castShadow = true; keyLight.shadow.mapSize.set(1024, 1024); keyLight.shadow.bias = -0.003; keyLight.shadow.radius = 3;
   root.add(keyLight);
   const roomLights = {};
@@ -5519,7 +5527,7 @@ const World = (() => {
       const col = m.alarm ? 0xff3b2a : (k === 'plant' ? 0xffa250 : (k === m.focus ? 0xffb35c : 0xe0a060));
       L.l.color.set(col); L.bulbMat.color.set(col); L.cone.material.color.set(col);
       L.base = k === m.focus ? 2.6 : (m.night ? 0.45 : 0.8);
-      L.cone.material.opacity = k === m.focus ? 0.22 : 0.07;
+      L.cone.material.opacity = k === m.focus ? 0.18 : 0.05;
     });
     // 夜里窗外是城市的冷光，白天是阴天的灰白光；都从玻璃幕墙照进来
     // 体积雾：夜晚浓一些偏冷青，白天薄偏暖灰；警报时浓红
@@ -5720,7 +5728,8 @@ const World = (() => {
       }
       if (alarm) f *= 0.45 + pulse * 0.9;
       // 只有当前房间可见，所以当前房间总是亮的；剧情焦点房间更亮
-      L.l.intensity = (k === activeRoom ? Math.max(L.base, 1.9) : L.on ? 0.55 : 0) * f;
+      // 只有玩家所在的房间亮灯，别的房间关灯
+      L.l.intensity = (k === activeRoom ? Math.max(L.base, 1.0) : 0) * f;
       L.cone.visible = k === activeRoom && f > 0.4;
     });
     const pa = dust.geometry.attributes.position.array;
@@ -5747,6 +5756,12 @@ const World = (() => {
     fogPass.uniforms.uTime.value = t;
     fogPass.uniforms.uBase.value += ((activeRoom && ROOMS[activeRoom].y < 0 ? -1.4 : 0) - fogPass.uniforms.uBase.value) * 0.05;
     updateFogLights();
+    if (activeRoom) {
+      const R = ROOMS[activeRoom], U = fogPass.uniforms, k = Math.min(1, dt * 4);
+      U.uRoom.value.x += (R.x0 - U.uRoom.value.x) * k; U.uRoom.value.y += (R.x1 - U.uRoom.value.y) * k;
+      U.uRoom.value.z += (R.z0 - U.uRoom.value.z) * k; U.uRoom.value.w += (R.z1 - U.uRoom.value.w) * k;
+      U.uRoomY.value += (R.y - U.uRoomY.value) * k;
+    }
     composer.render();
     requestAnimationFrame(loop);
   }
