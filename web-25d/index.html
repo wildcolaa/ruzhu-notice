@@ -4794,9 +4794,10 @@ const World = (() => {
   box(speaker, 0.6, 0.5, 0.5, 0x6b4a22, 0, 0, 0);
   led('speaker', speaker, 1.2);
   reg('speaker', speaker, '音箱', [-6.6, -4.5]);
-  const curtain = group(-11.84, 0, -2.0);
-  box(curtain, 0.06, 2.6, 1.8, 0x445a52, 0, 0.2, 0);
-  reg('curtain', curtain, '窗帘', [-11.0, -2.0]);
+  // 窗帘收在窗户南侧，离开墙面和窗框 6cm（窗框 x 到 -11.75），不挡储物柜
+  const curtain = group(-11.66, 0, -1.52);
+  box(curtain, 0.12, 2.6, 0.7, 0x445a52, 0, 0, 0);
+  reg('curtain', curtain, '窗帘', [-11.0, -1.9]);
   const locker = group(-11.6, 0, -0.8);
   box(locker, 0.6, 1.1, 0.7, 0x5e4430, 0, 0, 0);
   reg('locker', locker, '私人储物柜', [-10.8, -0.8]);
@@ -4999,7 +5000,8 @@ const World = (() => {
     ['de_walllamp', -11.77, 0, -3.6, '壁灯', [-11.0, -3.6]],
     // 客厅：地毯、芥末色扶手椅、落地灯、吊扇、磁带机、书架
     ['de_rug', -2.4, 0, -2.7, '旧地毯', [-2.4, -1.4]],
-    ['de_armchair', 0.0, 0, -3.4, '芥末色扶手椅', [0.3, -2.4]],
+    // 扶手椅原来离厨房门不到 1m，挪到电视右侧的墙角，斜对电视
+    ['de_armchair', -0.5, 0, -4.85, '芥末色扶手椅', [-0.5, -3.7], [0, -0.6, 0]],
     ['de_floorlamp', 0.5, 0, -4.4, '落地灯', [0.0, -3.7]],
     ['de_ceilfan', -2.6, 0, -3.0, '吊扇', [-2.6, -1.6]],
     ['de_reeltape', -4.3, 0, -5.6, '磁带机', [-4.3, -4.6]],
@@ -5967,7 +5969,7 @@ const Models = (() => {
     pothos: { size: [0.9, 1.1, 0.9], rotY: 0 },
     water: { size: [0.32, 1.0, 0.32], rotY: 0 },
     speaker: { size: [0.6, 1.05, 0.5], rotY: 0 },
-    curtain: { size: [0.12, 2.6, 1.6], rotY: 0, exact: true },
+    curtain: { size: [0.12, 2.6, 0.7], rotY: 0, exact: true },
     locker: { size: [0.6, 1.1, 0.7], rotY: Math.PI / 2, autoAlign: false },   // 靠西墙，柜门朝 +X
     dock: { size: [0.5, 0.32, 0.36], rotY: Math.PI },
     status: { size: [0.42, 0.55, 0.07], rotY: 0, lift: 1.2, exact: true, keepScreen: true, screen: [0, 1.53, 0.045], screenScale: 0.6 },
@@ -6115,8 +6117,10 @@ const Models = (() => {
         fitToSize(inner, sz[0], sz[1], sz[2], spec.autoAlign);
         if (spec.exact) {
           // 按轴分别拉伸到目标尺寸（压扁过厚的模型，如平躺的门板）
+          // 世界尺寸 → 本地缩放：fitToSize 自动对齐时会把 inner 转 90°，这时本地 X 对应世界 Z，要交换
           const b = visBox(inner), s3 = b.getSize(new THREE.Vector3());
-          inner.scale.set(inner.scale.x * sz[0] / s3.x, inner.scale.y * sz[1] / s3.y, inner.scale.z * sz[2] / s3.z);
+          const rx = sz[0] / s3.x, rz = sz[2] / s3.z, quarter = Math.abs(Math.sin(inner.rotation.y)) > 0.5;
+          inner.scale.set(inner.scale.x * (quarter ? rz : rx), inner.scale.y * sz[1] / s3.y, inner.scale.z * (quarter ? rx : rz));
           const b2 = visBox(inner), c2 = b2.getCenter(new THREE.Vector3());
           inner.position.x -= c2.x; inner.position.z -= c2.z; inner.position.y -= b2.min.y;
         }

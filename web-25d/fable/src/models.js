@@ -82,7 +82,7 @@ const Models = (() => {
     pothos: { size: [0.9, 1.1, 0.9], rotY: 0 },
     water: { size: [0.32, 1.0, 0.32], rotY: 0 },
     speaker: { size: [0.6, 1.05, 0.5], rotY: 0 },
-    curtain: { size: [0.12, 2.6, 1.6], rotY: 0, exact: true },
+    curtain: { size: [0.12, 2.6, 0.7], rotY: 0, exact: true },
     locker: { size: [0.6, 1.1, 0.7], rotY: Math.PI / 2, autoAlign: false },   // 靠西墙，柜门朝 +X
     dock: { size: [0.5, 0.32, 0.36], rotY: Math.PI },
     status: { size: [0.42, 0.55, 0.07], rotY: 0, lift: 1.2, exact: true, keepScreen: true, screen: [0, 1.53, 0.045], screenScale: 0.6 },
@@ -230,8 +230,10 @@ const Models = (() => {
         fitToSize(inner, sz[0], sz[1], sz[2], spec.autoAlign);
         if (spec.exact) {
           // 按轴分别拉伸到目标尺寸（压扁过厚的模型，如平躺的门板）
+          // 世界尺寸 → 本地缩放：fitToSize 自动对齐时会把 inner 转 90°，这时本地 X 对应世界 Z，要交换
           const b = visBox(inner), s3 = b.getSize(new THREE.Vector3());
-          inner.scale.set(inner.scale.x * sz[0] / s3.x, inner.scale.y * sz[1] / s3.y, inner.scale.z * sz[2] / s3.z);
+          const rx = sz[0] / s3.x, rz = sz[2] / s3.z, quarter = Math.abs(Math.sin(inner.rotation.y)) > 0.5;
+          inner.scale.set(inner.scale.x * (quarter ? rz : rx), inner.scale.y * sz[1] / s3.y, inner.scale.z * (quarter ? rx : rz));
           const b2 = visBox(inner), c2 = b2.getCenter(new THREE.Vector3());
           inner.position.x -= c2.x; inner.position.z -= c2.z; inner.position.y -= b2.min.y;
         }
