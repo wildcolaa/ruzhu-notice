@@ -340,5 +340,5 @@ ${can ? `玩家可以让你做的事：${can}。如果玩家像是想要其中�
     return out;
   }
 
-  return { reply, canUseAI, aiLabel, hasGroq, hasRelay, relayUrl, testAI, AI, AI_MODELS, MEM, LOG, logEvent, remember, AGENTS, RULES, INTENTS };
+  return { reply, complete, canUseAI, aiLabel, hasGroq, hasRelay, relayUrl, testAI, AI, AI_MODELS, MEM, LOG, logEvent, remember, AGENTS, RULES, INTENTS };
 })();

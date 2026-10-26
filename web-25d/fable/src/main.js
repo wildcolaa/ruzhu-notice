@@ -237,9 +237,15 @@ const Boot = (() => {
   $('bootOut').onclick = resume;
   $('bootLed').onclick = openAI;
   $('bootAi').onclick = openAI;
-  return { show, hide };
+  return { show, hide, resume };
 })();
-function intro() { Boot.show(); }
+function intro() {
+  // 旧电脑读档后会刷新页面：带着这个标记就跳过开场终端，直接回到读出的那一天
+  let again = false;
+  try { again = sessionStorage.getItem('ruzhu_resume') === '1'; sessionStorage.removeItem('ruzhu_resume'); } catch (e) {}
+  if (again && loadSave.found) { Boot.resume(); toast('已从旧电脑读档'); return; }
+  Boot.show();
+}
 
 // ---------- 启动 ----------
 World.onHover(label => { const p = $('prompt'); if (label) { p.textContent = label; p.classList.add('show'); } else p.classList.remove('show'); });

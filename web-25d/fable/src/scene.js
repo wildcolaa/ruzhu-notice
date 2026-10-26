@@ -925,6 +925,27 @@ const World = (() => {
   const shoes = group(-1.45, 0, 4.8);
   box(shoes, 0.6, 0.9, 1.8, 0x9a7b58, 0, 0, 0);
   reg('shoes', shoes, '鞋柜', [-0.8, 4.8]);
+  // 玄关：周岚自己装的离线旧电脑（米色卧式主机 + CRT 显示器 + 键盘 + 鼠标），屏幕朝房间，点开进入电脑页面
+  const pcG = group(2.0, 0, 4.75);
+  const PC_BEIGE = 0xd6cfbb, PC_BEIGE2 = 0xbfb7a1;
+  box(pcG, 1.3, 0.05, 0.66, 0x4a3426, 0, 0.70, 0, { map: TEX.wood });                    // 桌面
+  [[-0.6, -0.28], [0.6, -0.28], [-0.6, 0.28], [0.6, 0.28]].forEach(([x, z]) => box(pcG, 0.05, 0.70, 0.05, 0x2e2118, x, 0, z, { edges: false }));
+  box(pcG, 0.66, 0.17, 0.46, PC_BEIGE, -0.05, 0.75, -0.09);                               // 主机
+  box(pcG, 0.2, 0.022, 0.01, 0x2a2620, 0.12, 0.86, 0.145, { edges: false });              // 软驱口
+  box(pcG, 0.2, 0.03, 0.01, PC_BEIGE2, 0.12, 0.80, 0.145, { edges: false });               // 光驱
+  const pcLed = sphere(pcG, 0.012, 0x5ad1b8, 0.25, 0.84, 0.15, 0x5ad1b8); pcLed.userData.keep = true;
+  box(pcG, 0.24, 0.03, 0.2, PC_BEIGE2, -0.05, 0.92, -0.1);                                // 显示器底座
+  box(pcG, 0.52, 0.43, 0.40, PC_BEIGE, -0.05, 0.95, -0.12);                               // 显示器
+  box(pcG, 0.44, 0.34, 0.01, 0x2a2a24, -0.05, 1.01, 0.085, { edges: false });              // 屏幕外框
+  const pcScreen = screen(pcG, 0.40, 0.30, ['ZL-0217', 'C:\\> _'], -0.05, 1.18, 0.092, 0, { bg: '#08201a', fg: '#8ff5d2', size: 44 });
+  box(pcG, 0.58, 0.028, 0.18, PC_BEIGE, -0.02, 0.75, 0.22);                                // 键盘
+  const pcKeys = [];
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 14; c++) {
+    const k = box(pcG, 0.03, 0.012, 0.024, r === 4 && c > 3 && c < 10 ? 0xcfc7b0 : 0xe6dfcc, -0.27 + c * 0.039, 0.778, 0.155 + r * 0.032, { edges: false });
+    pcKeys.push(k);
+  }
+  box(pcG, 0.055, 0.025, 0.085, PC_BEIGE, 0.38, 0.75, 0.24);                                // 鼠标
+  reg('pc', pcG, '旧电脑', [2.0, 5.55]);
 
   // 浴室：镜面、本地人数传感器
   const tub = group(7.8, 0, 1.2);
@@ -1984,7 +2005,7 @@ const World = (() => {
       player.position.set(x, floorY(x, z), z); walk = null; marker.visible = false;
       const k = roomAt(x, z); if (k) { pendingRoom = null; fadeDir = 0; showRoom(k, true); }
     },
-    screens: { tv: tvScreen, plan: planScreen, cam: camScreen },
+    screens: { tv: tvScreen, plan: planScreen, cam: camScreen, pc: pcScreen }, pcKeys,
     lamps: { lockLed, echoEye, echoLight, qingLight, glass, lampShade },
     statusLeds, blood, robot, shard, potG, roomRoot,
     toon, setTick(fn) { tick = fn; },

@@ -719,6 +719,80 @@ button, input { font-family: inherit; }
   background: var(--ph-dim); box-shadow: 0 0 8px rgba(80,255,210,.35); }
 .ph-home:hover { background: var(--ph); }
 .ph-home::before { content: ""; display: block; margin: -10px 0; height: 25px; }   /* 放大点击区域 */
+
+/* ---- 玄关旧电脑 ZL-0217：米色 CRT + 卧式主机 + 键盘（参考 90 年代 PC）---- */
+#pc { position: absolute; inset: 0; z-index: 35; display: grid; place-items: center; pointer-events: auto;
+  background: radial-gradient(ellipse at 50% 40%, rgba(10,14,13,.55), rgba(0,0,0,.92)); opacity: 0; transition: opacity .25s; }
+#pc.on { opacity: 1; } #pc.off { opacity: 0; }
+.pc-rig { --bg1: #e4ddc9; --bg2: #d3cbb4; --bg3: #b9b099; --edge: #a49a82;
+  position: relative; width: min(760px, 94vw, calc(96vh * .92)); aspect-ratio: 760 / 830; display: flex; flex-direction: column; align-items: center;
+  font-size: min(16px, 2.1vw, 1.95vh); transform: translateY(14px) scale(.97); transition: transform .3s ease-out; }
+#pc.on .pc-rig { transform: none; }
+/* 显示器 */
+.pc-mon { width: 72%; aspect-ratio: 545 / 420; flex: none; overflow: hidden; position: relative; border-radius: 1.2em 1.2em .7em .7em; padding: 4.2% 4.6% 0;
+  background: linear-gradient(180deg, var(--bg1), var(--bg2) 70%, var(--bg3)); box-shadow: inset 0 2px 0 rgba(255,255,255,.6), inset 0 -3px 0 rgba(0,0,0,.12), 0 18px 40px rgba(0,0,0,.55);
+  display: flex; flex-direction: column; }
+.pc-bezel { flex: 1; min-height: 0; border-radius: .9em; padding: 4.5%; background: linear-gradient(160deg, #cbc3ab, #e1dac6 40%, #c2b9a1);
+  box-shadow: inset 0 3px 6px rgba(0,0,0,.25), inset 0 -2px 0 rgba(255,255,255,.5); }
+.pc-crt { position: relative; height: 100%; border-radius: 1.6em / 1.3em; overflow: hidden; cursor: text;
+  background: radial-gradient(ellipse at 50% 45%, #0e2a22, #061411 75%); box-shadow: inset 0 0 40px rgba(0,0,0,.9), inset 0 0 0 2px #191a16;
+  padding: 1.1em 1.3em 2.6em; box-sizing: border-box; color: var(--ph); text-shadow: var(--ph-glow); font: .86em/1.5 var(--mono); }
+.pc-out { position: absolute; left: 1.3em; right: 1.3em; top: 1.1em; bottom: 2.7em; overflow: auto; scrollbar-width: none; white-space: pre-wrap; word-break: break-all; }
+.pc-out::-webkit-scrollbar { display: none; }
+.pc-out .pl { min-height: 1.5em; }
+.pc-out .ph { color: var(--ph-hi); letter-spacing: .08em; }
+.pc-out .dim { color: var(--ph-dim); }
+.pc-out .me { color: var(--ph-hi); }
+.pc-out .warn { color: var(--warn); text-shadow: var(--warn-glow); }
+.pc-out .ok { color: var(--ph-hi); }
+.pc-out .ai { color: #bff9e4; }
+.pc-line { position: absolute; left: 1.3em; right: 1.3em; bottom: .9em; display: flex; gap: .5em; align-items: center; z-index: 2; }
+.pc-line span { color: var(--ph-hi); white-space: nowrap; }
+.pc-line input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; padding: 0; font: inherit; color: var(--ph-hi); text-shadow: var(--ph-glow); caret-color: var(--ph-hi); caret-shape: block; }
+#pc .crt-scan, #pc .crt-vignette, #pc .crt-glass { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.pc-chin { height: 11%; display: flex; align-items: center; gap: .9em; padding: 0 3%; font: 600 .62em/1 var(--mono); letter-spacing: .3em; color: #8a8270; }
+.pc-chin span { margin-right: auto; }
+.pc-btn { width: 1.6em; height: .5em; border-radius: .2em; background: var(--bg3); box-shadow: inset 0 1px 1px rgba(0,0,0,.3); }
+.pc-pow { width: 1.6em; height: 1.6em; border-radius: .25em; cursor: pointer; background: linear-gradient(180deg, #ece6d4, #c9c1aa); box-shadow: 0 1px 0 rgba(0,0,0,.25), inset 0 0 0 1px var(--edge); position: relative; }
+.pc-pow::after { content: ""; position: absolute; right: -.9em; top: .55em; width: .45em; height: .45em; border-radius: 50%; background: #5ad1b8; box-shadow: 0 0 6px #5ad1b8; }
+.pc-neck { width: 30%; height: 2.4%; background: linear-gradient(180deg, var(--bg3), var(--bg2)); border-radius: 0 0 40% 40% / 0 0 100% 100%; box-shadow: 0 4px 6px rgba(0,0,0,.3); }
+/* 主机 */
+.pc-case { width: 82%; height: 16.5%; margin-top: -.2%; border-radius: .5em; display: flex; align-items: stretch; gap: 3%; padding: 2% 3%; box-sizing: border-box;
+  background: linear-gradient(180deg, var(--bg1), var(--bg2) 60%, var(--bg3)); box-shadow: inset 0 2px 0 rgba(255,255,255,.55), inset 0 -3px 0 rgba(0,0,0,.12), 0 14px 30px rgba(0,0,0,.5); }
+.pc-vent { flex: 1; align-self: flex-end; height: 42%; background: repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 6px); border-radius: .2em; }
+.pc-bays { width: 26%; display: flex; flex-direction: column; gap: 6%; }
+.pc-bays i { flex: 1; border-radius: .2em; background: linear-gradient(180deg, #e9e3d1, #cfc7b0); box-shadow: inset 0 0 0 1px var(--edge); position: relative; }
+.pc-fd::after { content: ""; position: absolute; left: 22%; right: 30%; top: 40%; height: 20%; background: #2a2620; border-radius: 1px; }
+.pc-cd::after { content: ""; position: absolute; left: 8%; right: 8%; top: 46%; height: 8%; background: rgba(0,0,0,.15); }
+.pc-sw { width: 8%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10%; }
+.pc-sw b { width: 50%; height: 34%; border-radius: .2em; background: #2a2724; box-shadow: inset 0 0 0 2px #e4ddc9, 0 0 0 1px var(--edge); }
+.pc-led { width: .4em; height: .4em; border-radius: 50%; background: #3b4a42; }
+.pc-led.on { background: #5ad1b8; box-shadow: 0 0 6px #5ad1b8; animation: pcHdd 1.6s steps(1) infinite; }
+@keyframes pcHdd { 0%, 70% { opacity: 1; } 75%, 85% { opacity: .3; } }
+/* 键盘 */
+.pc-kb { width: 90%; margin-top: 2.6%; display: flex; gap: 2.5%; padding: 1.8% 2.2% 2.4%; box-sizing: border-box; border-radius: .6em .6em 1em 1em;
+  background: linear-gradient(180deg, var(--bg2), var(--bg1) 20%, var(--bg2)); box-shadow: inset 0 2px 0 rgba(255,255,255,.5), 0 4px 0 var(--bg3), 0 14px 26px rgba(0,0,0,.5);
+  transform: perspective(900px) rotateX(18deg); transform-origin: 50% 0; }
+.pk-main { flex: 15; display: flex; flex-direction: column; gap: .28em; }
+.pk-num { flex: 4; display: flex; flex-direction: column; gap: .28em; }
+.pk-row { display: flex; gap: .22em; }
+.pk-fn { margin-bottom: .3em; }
+.pk-leds { height: 1.75em; display: flex; justify-content: flex-end; gap: .9em; align-items: center; padding-right: .3em; margin-bottom: .3em; }
+.pk-leds i { width: .4em; height: .4em; border-radius: 50%; background: #3b4a42; } .pk-leds i:first-child { background: #5ad1b8; box-shadow: 0 0 5px #5ad1b8; }
+.pk, .pk-gap { flex: var(--w, 1) 1 0; min-width: 0; height: 1.75em; }
+.pk-gap { flex: .5 1 0; }
+.pk { display: grid; place-items: center; border-radius: .22em; font: 600 .5em/1 var(--mono); color: #6b6455; text-shadow: none; user-select: none; cursor: pointer; overflow: hidden; white-space: nowrap;
+  background: linear-gradient(180deg, #f3eee0, #ddd6c2); box-shadow: 0 .18em 0 #b4ab93, 0 .22em .2em rgba(0,0,0,.25), inset 0 0 0 1px rgba(0,0,0,.06);
+  transition: transform .05s, box-shadow .05s, background .05s; }
+.pk-num .pk { height: 1.75em; }
+.pk.down { transform: translateY(.16em); box-shadow: 0 .03em 0 #b4ab93, inset 0 0 0 1px rgba(0,0,0,.1); background: linear-gradient(180deg, #d9d2bd, #cbc3ad); color: #2f6b5a; }
+.pk[data-code="Space"], .pk[data-code="Enter"], .pk[data-code="ShiftLeft"], .pk[data-code="ShiftRight"], .pk[data-code="Backspace"] { background: linear-gradient(180deg, #e2dbc7, #ccc4ad); }
+.pc-mouse { position: absolute; right: 1.5%; bottom: 1.5%; width: 8%; aspect-ratio: 1 / 1.45; border-radius: 45% 45% 48% 48%; background: linear-gradient(180deg, #ece6d4, #cfc7b0);
+  box-shadow: 0 6px 12px rgba(0,0,0,.45), inset 0 2px 0 rgba(255,255,255,.6); }
+.pc-mouse i { position: absolute; left: 50%; top: 0; height: 36%; width: 1px; background: rgba(0,0,0,.18); }
+.pc-mouse::before { content: ""; position: absolute; left: 50%; bottom: 100%; width: 3.5em; height: 3.5em; border: 2px solid #c9c1aa; border-color: #c9c1aa transparent transparent transparent; border-radius: 50%; transform: translate(-90%, 60%) rotate(-30deg); }
+.pc-quit { position: absolute; left: 0; bottom: 0; font: 600 .7em/1 var(--mono) !important; letter-spacing: .1em; padding: .8em 1.2em !important; min-height: 0 !important; }
+@media (prefers-reduced-motion: reduce) { #pc, .pc-rig, .pk { transition: none; } .pc-led.on { animation: none; } }
 </style>
 </head>
 <body>

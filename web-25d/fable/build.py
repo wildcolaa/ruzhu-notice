@@ -24,7 +24,7 @@ if ui_dir.exists():
             ui_imgs[f.stem] = f"data:{mime[f.suffix]};base64," + base64.b64encode(f.read_bytes()).decode("ascii")
 model_js += "\nconst UI_IMG = " + json.dumps(ui_imgs) + ";"
 
-order = ["three.bundle.js", "badge.js", "scene.js", "models.js", "data.js", "npc.js", "ui.js", "puzzles.js", "main.js", "rules.js"]
+order = ["three.bundle.js", "badge.js", "scene.js", "models.js", "data.js", "npc.js", "ui.js", "puzzles.js", "main.js", "rules.js", "pc.js"]
 parts = [model_js] + [(src / f).read_text(encoding="utf-8") for f in order]
 scripts = "\n".join(f"<script>\n{p}\n</script>" for p in parts)
 shell = (src / "shell.html").read_text(encoding="utf-8")
