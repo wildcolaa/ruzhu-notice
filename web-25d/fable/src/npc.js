@@ -54,9 +54,9 @@ const NPC = (() => {
     },
     lock(msg, c) {
       if (c.day === 3 && has(RX.open, msg)) {
-        if (c.flags.mirror_proof && c.power >= 1) return { ok: true, action: 'unlock', cost: 1, reply: '浴室镜面证明了屋里有人。我重新核对过了。……咔。门开了。' };
+        if (c.flags.mirror_proof && c.power >= 1) return { ok: true, action: 'unlock', cost: 1, reply: '浴室镜面证明了屋里有人。我重新核对过了。……咔。门开了。想走的话，现在就可以出去。' };
         if (c.flags.mirror_proof) return { ok: false, reply: '我相信屋里有人了。可是没有电，锁拉不开。去楼下设备间给我一格电。' };
-        if (c.holding === 'shard') return { ok: true, action: 'enable_visitor_exit', reply: '有人在撬锁芯。这是手动开门，我拦不住你。' };
+        if (c.holding === 'shard') return { ok: true, action: 'enable_visitor_exit', reply: '有人在撬锁芯。这是手动开门，我拦不住你。门开了。' };
         return { ok: false, reply: '请证明你有权从这里出去。' };
       }
       if (c.day >= 2 && has(RX.record, msg)) return { ok: true, action: 'export_raw_access_log', evidence: 'ev_lock', reply: '那晚 2:03，屋里有人求我开门，一共 4 次。可他已经不算住户了，所以我没开。……屋里有人，和屋里有住户，在我这里是两回事。' };

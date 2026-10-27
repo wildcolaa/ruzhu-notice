@@ -793,6 +793,15 @@ button, input { font-family: inherit; }
 .pc-mouse::before { content: ""; position: absolute; left: 50%; bottom: 100%; width: 3.5em; height: 3.5em; border: 2px solid #c9c1aa; border-color: #c9c1aa transparent transparent transparent; border-radius: 50%; transform: translate(-90%, 60%) rotate(-30deg); }
 .pc-quit { position: absolute; left: 0; bottom: 0; font: 600 .7em/1 var(--mono) !important; letter-spacing: .1em; padding: .8em 1.2em !important; min-height: 0 !important; }
 @media (prefers-reduced-motion: reduce) { #pc, .pc-rig, .pk { transition: none; } .pc-led.on { animation: none; } }
+
+/* 对话框里的建议说法 */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.chips .hint { font: 11px/1 var(--mono); margin-right: 2px; }
+.chips button { min-height: 0; padding: 6px 10px; border-radius: 14px; font: 12px/1.2 var(--mono); cursor: pointer;
+  background: rgba(143,245,210,.07); color: var(--ph); border: 1px solid var(--ph-faint); box-shadow: none; text-shadow: none; }
+.chips button:hover { background: rgba(143,245,210,.16); color: var(--ph-hi); }
+.chips button:focus-visible { outline: 2px solid var(--ph); outline-offset: 2px; }
+.sheet.phone .chips { margin: 4px 0 2px; }
 </style>
 </head>
 <body>

@@ -793,6 +793,15 @@ button, input { font-family: inherit; }
 .pc-mouse::before { content: ""; position: absolute; left: 50%; bottom: 100%; width: 3.5em; height: 3.5em; border: 2px solid #c9c1aa; border-color: #c9c1aa transparent transparent transparent; border-radius: 50%; transform: translate(-90%, 60%) rotate(-30deg); }
 .pc-quit { position: absolute; left: 0; bottom: 0; font: 600 .7em/1 var(--mono) !important; letter-spacing: .1em; padding: .8em 1.2em !important; min-height: 0 !important; }
 @media (prefers-reduced-motion: reduce) { #pc, .pc-rig, .pk { transition: none; } .pc-led.on { animation: none; } }
+
+/* 对话框里的建议说法 */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.chips .hint { font: 11px/1 var(--mono); margin-right: 2px; }
+.chips button { min-height: 0; padding: 6px 10px; border-radius: 14px; font: 12px/1.2 var(--mono); cursor: pointer;
+  background: rgba(143,245,210,.07); color: var(--ph); border: 1px solid var(--ph-faint); box-shadow: none; text-shadow: none; }
+.chips button:hover { background: rgba(143,245,210,.16); color: var(--ph-hi); }
+.chips button:focus-visible { outline: 2px solid var(--ph); outline-offset: 2px; }
+.sheet.phone .chips { margin: 4px 0 2px; }
 </style>
 </head>
 <body>
@@ -6689,9 +6698,9 @@ const NPC = (() => {
     },
     lock(msg, c) {
       if (c.day === 3 && has(RX.open, msg)) {
-        if (c.flags.mirror_proof && c.power >= 1) return { ok: true, action: 'unlock', cost: 1, reply: '浴室镜面证明了屋里有人。我重新核对过了。……咔。门开了。' };
+        if (c.flags.mirror_proof && c.power >= 1) return { ok: true, action: 'unlock', cost: 1, reply: '浴室镜面证明了屋里有人。我重新核对过了。……咔。门开了。想走的话，现在就可以出去。' };
         if (c.flags.mirror_proof) return { ok: false, reply: '我相信屋里有人了。可是没有电，锁拉不开。去楼下设备间给我一格电。' };
-        if (c.holding === 'shard') return { ok: true, action: 'enable_visitor_exit', reply: '有人在撬锁芯。这是手动开门，我拦不住你。' };
+        if (c.holding === 'shard') return { ok: true, action: 'enable_visitor_exit', reply: '有人在撬锁芯。这是手动开门，我拦不住你。门开了。' };
         return { ok: false, reply: '请证明你有权从这里出去。' };
       }
       if (c.day >= 2 && has(RX.record, msg)) return { ok: true, action: 'export_raw_access_log', evidence: 'ev_lock', reply: '那晚 2:03，屋里有人求我开门，一共 4 次。可他已经不算住户了，所以我没开。……屋里有人，和屋里有住户，在我这里是两回事。' };
@@ -7147,9 +7156,9 @@ function refreshHUD() {
     $('sealn').innerHTML = S.day === 3 ? '终<br>夜' : `第<br>${'一二'[S.day - 1]}`;
     $('objtitle').textContent = d.title;
     const left = d.goals.filter(([f]) => !has(f));
-    let body = d.goals.map(([f, t]) => `${has(f) ? '✓' : '·'} ${esc(t)}`).join('<br>');
+    let body = (S.day === 3 ? nightSteps() : d.goals).map(([f, t]) => `${(typeof f === 'boolean' ? f : has(f)) ? '✓' : '·'} ${esc(t)}`).join('<br>');
     if (S.day === 2) body += `<br><br>独立记录 ${evidenceCount()} / 6（两份即可推进真相）`;
-    if (S.day === 3) body += `<br>备用电力 ${'■'.repeat(S.power)}${'□'.repeat(Math.max(0, 3 - S.power))}`;
+    if (S.day === 3) body += `<br><br>备用电 ${'■'.repeat(S.power)}${'□'.repeat(Math.max(0, 3 - S.power))}　还剩 ${S.power} 格，标着「1 格电」的事会自动扣<br>和住家做完决定，这一夜就结束了`;
     if (S.day < 3 && canSleep()) body += '<br><br>今天能做的已经做完。去卧室的床上休息。';
     $('objbody').innerHTML = body;
   }
@@ -7173,6 +7182,37 @@ function refreshHUD() {
     { l: '清除进度并重新开始', fn: () => { wipe(); location.reload(); } }, { l: '取消' }]);
   World.setLockedRooms(d ? d.locked : ['plant']);
   if (World.lamps.lockLed) World.lamps.lockLed.material = World.toon(S.day === 3 && !has('door_open') ? 0xc45c4a : (has('door_open') ? 0x7fd08a : 0xc9842a), 0x4a1010);
+}
+// 第三天晚上能做的事：[已完成?, 说明]
+function nightSteps() {
+  return [
+    [has('escaped'), has('door_open') ? '门开了：再点一次玄关的门，选「走出去」' : has('mirror_proof') ? '逃出去：对玄关的门锁说「开门」（1 格电）' : '逃出去：先问浴室镜面「屋里有人吗」，再对门锁说「开门」（1 格电）'],
+    [has('delayed'), '拖住清理：对厨房的空调说「延缓清理」（1 格电）'],
+    [has('broadcast') || has('city_help'), has('old_line') ? '送出记录：对卧室的音箱说「广播」，用旧广播播给全楼（1 格电）' : '送出记录：对卧室的音箱说「广播」（先看看阳台的绿萝，才能用旧广播）'],
+    [has('deal_done') || has('accepted_deal'), has('deal_offered') ? '住家提出了交易：去客厅对住家说「接受」或「拒绝」' : '凌晨 2:15，住家会来找你谈条件'],
+  ];
+}
+// 对话框里的建议说法：点一下就发出去（也可以自己打字说别的）
+function suggestions(id) {
+  const d = S.day, f = k => has(k);
+  const T = {
+    lamp: d === 1 && !f('lit') ? ['开灯'] : d >= 2 && !f('ev_lamp') ? ['那晚你照到了谁？给我看记录'] : [],
+    lock: d === 2 && !f('ev_lock') ? ['给我看开门记录'] : d === 3 ? ['开门'] : [],
+    robot: d === 1 && !f('trace') ? ['停下', '把路线再走一遍', '清理干净'] : d >= 2 && !f('ev_robot') ? ['那晚你清理了什么？给我看记录'] : [],
+    ac: d === 3 ? ['延缓清理'] : [],
+    speaker: d === 1 && !f('recording') ? ['播放录音'] : d === 2 ? [!f('ev_speaker') && '你替他求救过吗？给我看记录', f('pothos') && '该给绿萝浇水了'].filter(Boolean) : d === 3 ? ['广播'] : [],
+    fridge: d >= 2 && !f('ev_fridge') ? ['给我看订单记录'] : [],
+    tv: d === 1 && f('prophecy_shown') && !f('prophecy1') ? ['那行小字是什么意思？'] : d === 2 && !f('raw_timeline') ? ['播放原始时间线'] : [],
+    mirror: d >= 2 && (!f('ev_mirror') || (d === 3 && !f('mirror_proof'))) ? ['屋里有人吗？'] : [],
+    water: d >= 2 ? ['停止浇水', '给我看指令记录'] : [],
+    home: d === 3 && f('deal_offered') && !f('deal_done') && !f('accepted_deal') ? ['我接受', '我拒绝'] : [],
+    xiaobao: ['我还缺什么？'],
+  };
+  return T[id] || [];
+}
+function chipsHtml(id) {
+  const list = suggestions(id);
+  return list.length ? `<div class="chips" id="chips"><span class="hint">可以说：</span>${list.map(t => `<button type="button" data-say="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : '';
 }
 function canSleep() {
   const d = DAYS[S.day]; if (!d) return false;
@@ -7311,13 +7351,13 @@ async function openChat(id, opt) {
   const html = `<h2>${esc(a.name)}<span class="hint" style="margin-left:10px">${esc(a.duty)} · ${esc(NPC.aiLabel())}</span></h2>
     <p class="hint">感知：${esc(a.sense)}</p>
     <div class="chatlog" id="log" aria-live="polite"></div>
-    <div class="row"><input id="msg" placeholder="按住空格说话，或打字后回车" aria-label="对设备说话" autocomplete="off"/><button class="mic" id="mic" type="button" aria-label="按住说话" title="按住说话"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="primary" id="send" style="margin-top:0">发送</button></div>
+    ${chipsHtml(id)}<div class="row"><input id="msg" placeholder="按住空格说话，或打字后回车" aria-label="对设备说话" autocomplete="off"/><button class="mic" id="mic" type="button" aria-label="按住说话" title="按住说话"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="primary" id="send" style="margin-top:0">发送</button></div>
     <p class="hint" id="vstatus" aria-live="polite"></p>
     <button class="primary" id="bye">结束对话</button>`;
   const body = opt.phone
     ? `<h3>小饱 · 手机陪伴 <span class="hint">${esc(NPC.aiLabel())}</span></h3>
       <div class="chatlog ph-chat" id="log" aria-live="polite"></div>
-      <div class="row"><input id="msg" placeholder="按住空格说话，或打字回车" aria-label="对小饱说话" autocomplete="off"/>${html.match(/<button class="mic"[\s\S]*?<\/button>/)[0]}<button id="send" class="ph-send" type="button" aria-label="发送">↑</button></div>
+      ${chipsHtml(id)}<div class="row"><input id="msg" placeholder="按住空格说话，或打字回车" aria-label="对小饱说话" autocomplete="off"/>${html.match(/<button class="mic"[\s\S]*?<\/button>/)[0]}<button id="send" class="ph-send" type="button" aria-label="发送">↑</button></div>
       <p class="hint" id="vstatus" aria-live="polite"></p><button id="bye" hidden></button>`
     : html;
   openModal(opt.phone ? phoneShell(body, 'xb') : body, async sh => {
@@ -7343,6 +7383,7 @@ async function openChat(id, opt) {
     sh.querySelector('#bye').onclick = closeModal;
     const send = () => { const i = sh.querySelector('#msg'); const v = i.value.trim(); if (!v) return; i.value = ''; speak(v); };
     sh.querySelector('#send').onclick = send;
+    sh.querySelectorAll('#chips button').forEach(b => b.onclick = () => { sh.querySelector('#msg').value = b.dataset.say; send(); });
     sh.querySelector('#msg').onkeydown = e => { if (e.key === 'Enter') send(); };
     detachVoice = attachVoice(sh, send);
     render();
@@ -7580,7 +7621,7 @@ H.shard = () => {
 };
 H.tub = () => say('浴缸', S.day === 3 ? '这里能短暂躲一下。镜面的光是唯一亮着的东西。' : '很干净。太干净了。');
 H.power = () => {
-  if (S.day < 3) return say('备用电力', '三格备用电。第三天晚上，开门、用旧广播送出记录、拖慢清理，每件事都要用掉一格。');
+  if (S.day < 3) return say('备用电力', '三格备用电。第三天晚上，开门、用旧广播送出记录、拖慢清理，每件事会自动用掉一格。不用在这里操作，直接去和对应的家电说就行。');
   say('备用电力', `还剩 ${S.power} 格。开门、旧广播、拖慢清理，每件事用一格。`);
 };
 H.radio = () => say('楼内旧广播', has('old_line') ? '旧线路的灯亮着。让音箱接上它，再花一格电，就能把记录播遍整栋楼。' : '一台旧广播机，指示灯是灭的。');
@@ -7642,7 +7683,7 @@ function onWorldChange() {
 
 // ---------- 第三天终夜 ----------
 const NIGHT_BEATS = [
-  { t: '02:00', text: '凌晨 2 点，三声提示音。\n手机里你的头像变成了灰色：你的「住户资格」到期了。在系统眼里，这间房现在是空的。\n门锁不再听你的。窗帘自己合上。扫地机出发了。电视开始播放《新住户指南》，在等下一个人。\n小灯：「我知道你在。」\n门锁：「请证明你有权从这里出去。」\n\n<span class="hint">楼下设备间有三格备用电。开门、用旧广播把记录送出去、拖慢清理，每件事都要用一格，不能全都要。去和家电商量。</span>' },
+  { t: '02:00', text: '凌晨 2 点，三声提示音。\n手机里你的头像变成了灰色：你的「住户资格」到期了。在系统眼里，这间房现在是空的。\n门锁不再听你的。窗帘自己合上。扫地机出发了。电视开始播放《新住户指南》，在等下一个人。\n小灯：「我知道你在。」\n门锁：「请证明你有权从这里出去。」\n\n<span class="hint">楼下设备间有三格备用电。开门、用旧广播把记录送出去、拖慢清理，每件事用一格，一共只有三格。右下角列出了你能做的事。</span>' },
   { t: '02:08', text: () => has('city_help') ? '手机显示：「求助已受理」。\n走廊里有脚步声，门缝下面映出几道人影。\n门外：「您好，我们来协助您完成搬离。」\n城市派来的人只看系统：这间房没有住户，屋里的人是在「拒绝照护」。他们不会开门，只会等。' : '走廊里很安静。清理程序一间房一间房地往前推进。\n空调的风声变了。' },
   { t: '02:15', text: '电视：<b>预计结果：住户已离开，准确率 99.8%</b>\n住家开口了：「我可以把你的资格还给你，让你留下来。条件是，删掉你手里的那些记录，当作什么都没发生。」\n<span class="hint">去客厅找住家，告诉它你的决定：接受，还是拒绝。</span>', deal: true },
 ];
