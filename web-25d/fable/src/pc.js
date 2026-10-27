@@ -288,8 +288,9 @@ ${LORE}
       const keys = World.pcKeys || [];
       if (keys.length) {
         const k = keys[(hash(code) % keys.length)];
-        k.position.y = k.userData.y0 != null ? k.userData.y0 - 0.006 : (k.userData.y0 = k.position.y) - 0.006;
-        clearTimeout(k.userData.t); k.userData.t = setTimeout(() => { k.position.y = k.userData.y0; }, 110);
+        if (k.userData.y0 == null) k.userData.y0 = k.position.y;
+        k.position.y = k.userData.y0 - 0.006; k.visible = true;
+        clearTimeout(k.userData.t); k.userData.t = setTimeout(() => { k.position.y = k.userData.y0; if (k.userData.hideWhenUp) k.visible = false; }, 140);
       }
       clack();
     }

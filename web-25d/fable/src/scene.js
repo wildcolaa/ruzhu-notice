@@ -906,9 +906,20 @@ const World = (() => {
   const tools = group(-2.45, 0, 0.85); tools.rotation.y = -Math.PI / 2;
   box(tools, 0.9, 1.5, 0.6, 0x6b5a48, 0, 0, 0);
   reg('tools', tools, '旧工具柜', [-3.3, 0.85]);
-  const shard = group(-3.0, 0, 4.6);
+  // 金属碎片放在储物间中间的空地上（原来在窗边杂物堆里，被玻璃栏杆和杂物挡住，看不见）
+  const shard = group(-4.2, 0, 1.75);
   box(shard, 0.22, 0.04, 0.12, 0xb0b4b8, 0, 0, 0, { emissive: 0x3a3a3a });
-  reg('shard', shard, '金属碎片', [-3.0, 3.8]);
+  function sparkTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    const r = g.createRadialGradient(32, 32, 0, 32, 32, 30); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.25, 'rgba(255,240,200,.5)'); r.addColorStop(1, 'rgba(255,240,200,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(31, 4, 2, 56); g.fillRect(4, 31, 56, 2);
+    return new THREE.CanvasTexture(c);
+  }
+  // 碎片上方一点闪光，提示这里有东西
+  const glint = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex(), color: 0xfff1c8, transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  glint.scale.set(0.34, 0.34, 1); glint.position.set(0, 0.14, 0); glint.userData.keep = true; glint.userData.glint = true; shard.add(glint);
+  reg('shard', shard, '金属碎片', [-3.7, 2.1]);
 
   // 储物间地面的杂物：散落的纸、倒下的木板、枕头、空瓶（纯装饰，不挡路）
   (() => {
@@ -956,22 +967,25 @@ const World = (() => {
   box(shoes, 0.6, 0.9, 1.8, 0x9a7b58, 0, 0, 0);
   reg('shoes', shoes, '鞋柜', [-0.8, 4.8]);
   // 玄关：周岚自己装的离线旧电脑（米色卧式主机 + CRT 显示器 + 键盘 + 鼠标），屏幕朝房间，点开进入电脑页面
-  const pcG = group(2.0, 0, 4.75);
+  const pcG = group(2.0, 0, 4.72);
   const PC_BEIGE = 0xd6cfbb, PC_BEIGE2 = 0xbfb7a1;
-  box(pcG, 1.3, 0.05, 0.66, 0x4a3426, 0, 0.70, 0, { map: TEX.wood });                    // 桌面
-  [[-0.6, -0.28], [0.6, -0.28], [-0.6, 0.28], [0.6, 0.28]].forEach(([x, z]) => box(pcG, 0.05, 0.70, 0.05, 0x2e2118, x, 0, z, { edges: false }));
+  // 书桌：换成 Tripo 电脑模型后也保留（userData.keep）
+  box(pcG, 1.4, 0.05, 0.86, 0x4a3426, 0, 0.70, 0, { map: TEX.wood }).userData.keep = true;  // 桌面
+  [[-0.65, -0.38], [0.65, -0.38], [-0.65, 0.38], [0.65, 0.38]].forEach(([x, z]) => { box(pcG, 0.05, 0.70, 0.05, 0x2e2118, x, 0, z, { edges: false }).userData.keep = true; });
   box(pcG, 0.66, 0.17, 0.46, PC_BEIGE, -0.05, 0.75, -0.09);                               // 主机
   box(pcG, 0.2, 0.022, 0.01, 0x2a2620, 0.12, 0.86, 0.145, { edges: false });              // 软驱口
   box(pcG, 0.2, 0.03, 0.01, PC_BEIGE2, 0.12, 0.80, 0.145, { edges: false });               // 光驱
-  const pcLed = sphere(pcG, 0.012, 0x5ad1b8, 0.25, 0.84, 0.15, 0x5ad1b8); pcLed.userData.keep = true;
+  sphere(pcG, 0.012, 0x5ad1b8, 0.25, 0.84, 0.15, 0x5ad1b8);
   box(pcG, 0.24, 0.03, 0.2, PC_BEIGE2, -0.05, 0.92, -0.1);                                // 显示器底座
   box(pcG, 0.52, 0.43, 0.40, PC_BEIGE, -0.05, 0.95, -0.12);                               // 显示器
   box(pcG, 0.44, 0.34, 0.01, 0x2a2a24, -0.05, 1.01, 0.085, { edges: false });              // 屏幕外框
   const pcScreen = screen(pcG, 0.40, 0.30, ['ZL-0217', 'C:\\> _'], -0.05, 1.18, 0.092, 0, { bg: '#08201a', fg: '#8ff5d2', size: 44 });
   box(pcG, 0.58, 0.028, 0.18, PC_BEIGE, -0.02, 0.75, 0.22);                                // 键盘
+  // 会动的键帽：按真键盘时下沉。Tripo 模型加载后，models.js 会把它们挪到模型键盘的表面上
   const pcKeys = [];
   for (let r = 0; r < 5; r++) for (let c = 0; c < 14; c++) {
     const k = box(pcG, 0.03, 0.012, 0.024, r === 4 && c > 3 && c < 10 ? 0xcfc7b0 : 0xe6dfcc, -0.27 + c * 0.039, 0.778, 0.155 + r * 0.032, { edges: false });
+    k.userData.keep = true; k.userData.r = r; k.userData.c = c;
     pcKeys.push(k);
   }
   box(pcG, 0.055, 0.025, 0.085, PC_BEIGE, 0.38, 0.75, 0.24);                                // 鼠标
@@ -1872,6 +1886,7 @@ const World = (() => {
   }
   let occTick = 0;
   function loop() {
+    if (glint.parent && glint.parent.visible) glint.material.opacity = 0.35 + Math.max(0, Math.sin(performance.now() / 420)) ** 4 * 0.65;
     const raw = clock.getDelta();
     if (++occTick % 10 === 0) updateOcclusion(false);
     if (!degraded) { slow = raw > 0.06 ? slow + raw : Math.max(0, slow - raw); if (slow > 2.5) degrade(); }

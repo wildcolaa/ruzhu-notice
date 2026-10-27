@@ -8,6 +8,46 @@ const Models = (() => {
   const data = (typeof MODEL_DATA !== 'undefined') ? MODEL_DATA : {};
   // 每个模型的摆放参数：fit 用哪条轴对齐原尺寸，rotY 修正 Tripo 的朝向
   // size: 目标世界尺寸 [宽, 高, 深]；rotY 修正 Tripo 朝向
+  // 电脑模型：按模型实际几何找到 CRT 屏幕和键盘，把文字屏、键帽贴上去
+  function placePcParts(wrap, host) {
+    host.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(host.matrixWorld).invert();
+    const pts = [];
+    wrap.traverse(o => {
+      if (!o.isMesh) return;
+      const pos = o.geometry.attributes.position, v = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i += 3) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).applyMatrix4(inv); pts.push(v.clone()); }
+    });
+    if (!pts.length) return;
+    const bb = new THREE.Box3().setFromPoints(pts), H = bb.max.y - bb.min.y;
+    // 键盘：离桌面很低（<9% 高度）、在主机前面、鼠标后面的那一条（模型深度方向 58%–76%）
+    const D = bb.max.z - bb.min.z;
+    const low = pts.filter(p => p.y < bb.min.y + H * 0.09 && p.z > bb.min.z + D * 0.58 && p.z < bb.min.z + D * 0.76);
+    const src = low.length > 30 ? low : pts;
+    const q = (arr, f) => arr[Math.min(arr.length - 1, Math.max(0, Math.floor(arr.length * f)))];
+    const xs = src.map(p => p.x).sort((a, b) => a - b), zs = src.map(p => p.z).sort((a, b) => a - b), ys = src.map(p => p.y).sort((a, b) => a - b);
+    const x0 = q(xs, 0.02), x1 = q(xs, 0.98), z0 = q(zs, 0.05), z1 = q(zs, 0.95), ytop = q(ys, 0.97);
+    const kw = (x1 - x0) * 0.94, kd = (z1 - z0) * 0.8, kcx = (x0 + x1) / 2, kcz = (z0 + z1) / 2;
+    (World.pcKeys || []).forEach(k => {
+      k.scale.set(kw / 14 / 0.039 * 0.9, 0.6, kd / 5 / 0.032 * 0.85);
+      k.position.set(kcx - kw / 2 + (k.userData.c + 0.5) * kw / 14, ytop + 0.002, kcz - kd / 2 + (k.userData.r + 0.5) * kd / 5);
+      k.userData.y0 = k.position.y;
+      // 平时隐藏，让模型自己的键帽露出来；按下时亮一下、往下沉（pc.js）
+      k.visible = false;
+      k.material = new THREE.MeshBasicMaterial({ color: 0x8ff5d2, transparent: true, opacity: 0.85 });
+      k.userData.hideWhenUp = true;
+    });
+    // CRT：最高那块（显示器）的正面
+    const top = pts.filter(p => p.y > bb.min.y + H * 0.45);
+    const mb = new THREE.Box3().setFromPoints(top);
+    const mw = mb.max.x - mb.min.x, mh = mb.max.y - mb.min.y;
+    const scr = World.screens.pc;
+    if (scr) {
+      scr.geometry.dispose(); scr.geometry = new THREE.PlaneGeometry(mw * 0.66, mh * 0.62);
+      scr.position.set((mb.min.x + mb.max.x) / 2, mb.min.y + mh * 0.56, mb.max.z + 0.006);
+      scr.userData.setText(scr.userData.lines, { w: 512, h: 384, size: 40 });
+    }
+  }
   const SPEC = {
     sofa: { size: [2.8, 1.0, 1.1], rotY: 0 },
     // Tripo 电视模型原本屏幕朝 -Z（贴墙），转 180° 让显像管朝向房间；
@@ -25,6 +65,9 @@ const Models = (() => {
     npc_echo: { size: [0.9, 1.4, 0.7], rotY: 0, keepLights: true, alias: 'reject_log' },
     door: { size: [1.5, 2.5, 0.14], rotY: 0, keepLights: true, alias: 'lock' },
     shoes: { size: [1.6, 0.9, 0.6], rotY: Math.PI / 2 },
+    // 玄关旧电脑：图生模型（参考 models_src/pc_ref.png），放在书桌上；屏幕和键帽在 after() 里对位
+    pc: { size: [0.62, 0.66, 0.8], rotY: -Math.PI / 2, lift: 0.725, autoAlign: false, keepScreen: true, after: placePcParts },
+    shard: { size: [0.34, 0.11, 0.16], rotY: 0.5, emit: 0x8a7650 },   // 关键道具：放大一点、微微反光，免得淹没在储物间的杂物里
     npc_qing: { size: [0.55, 0.55, 0.55], rotY: 0, float: true, alias: 'home' },
     // 网格脸朝 +X；走路逻辑假定角色朝 +Z，所以先转 -90°。不要再按长轴自动转。
     player: { size: [0.72, 1.45, 0.72], rotY: -Math.PI / 2, autoAlign: false },   // 大头 Q 版：放宽宽度，避免被缩得太小
@@ -238,6 +281,7 @@ const Models = (() => {
           inner.position.x -= c2.x; inner.position.z -= c2.z; inner.position.y -= b2.min.y;
         }
         if (spec.lift) wrap.position.y += spec.lift;
+
         if (spec.emit) wrap.traverse(o => { if (o.isMesh && o.material) { o.material.emissive = new THREE.Color(spec.emit); o.material.emissiveIntensity = 0.35; } });
         if (spec.glow) {
           const L = new THREE.PointLight(spec.glow, 1.1, 4.5, 1.8);
@@ -269,6 +313,7 @@ const Models = (() => {
           ch.visible = false;
         });
         host.add(wrap);
+        if (spec.after) { try { spec.after(wrap, host); } catch (e) { console.warn('after', id, e); } }
         if (hostId !== 'player') wrap.traverse(o => { if (o.isMesh) o.userData.iid = hostId; });
         if (spec.float) floaters.push(wrap);
         loaded[hostId] = wrap; n++;
