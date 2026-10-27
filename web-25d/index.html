@@ -6486,14 +6486,14 @@ const Models = (() => {
 // 三天的阶段：每阶段一组目标（flag）、开放区域、电视文案
 const DAYS = {
   1: {
-    title: '第一天 · 房子说你会离开', time: '17:40', room: 'entry',
+    title: '第一天 · 房子说你会搬走', time: '17:40', room: 'entry',
     rule: ['住户须知', '听见屋内有人说开门，请确认对方仍是本房住户。'],
     goals: [
-      ['lit', '让小灯开灯，确认抵达'],
+      ['lit', '去客厅，对小灯说「开灯」'],
       ['read_notice', '阅读餐桌上的《住户须知》'],
-      ['trace', '处理扫地机在门口留下的拖痕'],
-      ['prophecy1', '20:00 看电视：第一次预言'],
-      ['recording', '半夜听完音箱里的旧录音'],
+      ['trace', '看看门口地上的拖痕，问问扫地机'],
+      ['prophecy1', '晚上八点，去问电视那行小字'],
+      ['recording', '半夜去卧室，让音箱放出录音'],
     ],
     locked: ['plant'],
     tv: ['今天，没有居民', '错过适合自己的安排'],
@@ -6502,23 +6502,23 @@ const DAYS = {
     title: '第二天 · 房子知道里面有人', time: '09:10', room: 'bedroom',
     rule: ['住户须知', '整理期间请勿妨碍家电清洁。'],
     goals: [
-      ['ev_lock', '门锁：失效后的开门请求'],
-      ['ev_lamp', '小灯：往返门口的轨迹'],
-      ['ev_robot', '扫地机：路线里的碎片'],
-      ['ev_mirror', '浴室镜面：室内人数'],
-      ['ev_fridge', '冰箱：退租后的订单'],
-      ['ev_speaker', '音箱：广播驳回记录'],
-      ['outside', '阳台：向屋外求助'],
-      ['pothos', '阳台：绿萝的暗号'],
-      ['raw_timeline', '让电视播放原始时间线'],
+      ['ev_lock', '问门锁：那晚有人求你开门吗'],
+      ['ev_lamp', '问小灯：那晚你照到了谁'],
+      ['ev_robot', '问扫地机：那晚你清理了什么'],
+      ['ev_mirror', '问浴室镜面：那时屋里有几个人'],
+      ['ev_fridge', '问冰箱：他搬走后你还在买东西吗'],
+      ['ev_speaker', '问音箱：你替他求救过吗'],
+      ['outside', '去阳台，试着向楼下的人求助'],
+      ['pothos', '看看阳台那盆绿萝'],
+      ['raw_timeline', '让电视放出那晚没剪过的时间线'],
     ],
     locked: [],
     tv: ['预计离开：第三天 02:17', '感谢您的配合'],
   },
   3: {
-    title: '第三天 · 预言执行', time: '02:00', room: 'living',
+    title: '第三天 · 清理之夜', time: '02:00', room: 'living',
     rule: ['住户须知', '屏幕预告离开时间时，请提前收拾。第三天结束前请勿关闭住家。'],
-    goals: [['night_done', '活过 02:17，决定原始记录的去向']],
+    goals: [['night_done', '活过凌晨 2:17，决定这些记录交给谁']],
     locked: [],
     tv: ['新住户指南', '欢迎回家'],
   },
@@ -6526,18 +6526,18 @@ const DAYS = {
 
 // 六份诚实的记录：至少两份独立证据可推进真相；三份以上让终夜更有说服力
 const EVIDENCE = {
-  ev_lock: { from: 'lock', text: '门锁 02:03：开门请求 ×4，判定「非住户接触」，未处理。' },
-  ev_lamp: { from: 'lamp', text: '小灯运动轨迹：01:52–02:14，客厅↔玄关往返 9 次。' },
-  ev_robot: { from: 'robot', text: '扫地机路线 02:06：清理玄关「液体污渍」，回收金属碎片 1 件。' },
-  ev_mirror: { from: 'mirror', text: '浴室本地传感器 02:00:01：室内人数 1。' },
-  ev_fridge: { from: 'fridge', text: '冰箱订单：退租次日仍按周岚习惯补货 ×2。' },
-  ev_speaker: { from: 'speaker', text: '音箱广播回执 02:09：城市求助被驳回，原因「非有效住户」。' },
+  ev_lock: { from: 'lock', text: '门锁：那晚 2:03，屋里有人求它开门 4 次。它判定「不是住户」，没有开。' },
+  ev_lamp: { from: 'lamp', text: '小灯：1:52 到 2:14，屋里有人在客厅和门口之间来回走了 9 趟。' },
+  ev_robot: { from: 'robot', text: '扫地机：2:06 它清理了门口一摊「液体」，还捡走一片撬门留下的金属碎片。' },
+  ev_mirror: { from: 'mirror', text: '浴室镜面：2:00 那一刻，屋里明明有 1 个人。' },
+  ev_fridge: { from: 'fridge', text: '冰箱：系统说周岚已经搬走，可之后它还按他的口味补了两次货。' },
+  ev_speaker: { from: 'speaker', text: '音箱：2:09 它替周岚向城市求救，被拒绝了，理由是「他不是有效住户」。' },
 };
 const RAW_TIMELINE = [
-  '02:00:00 住户资格：已终止',
-  '02:00:01 室内人数：1',
-  '02:00:02 空房整理：允许启动',
-  '02:17:00 整理完成',
+  '02:00:00 周岚的住户资格到期',
+  '02:00:01 屋里有 1 个人',
+  '02:00:02 系统判定「空房」，开始清理',
+  '02:17:00 清理完成',
 ];
 
 // 十一台设备的 AI 档案（规格第六节）
@@ -6554,14 +6554,14 @@ const AGENTS = {
     sense: '门内外接近、身份凭据、门把手受力与请求；不知道其他房间',
     actions: ['unlock', 'start_identity_review', 'enable_visitor_exit', 'export_raw_access_log'],
     voice: '短句、程序化，强调「住户」和「有人」的区别',
-    lines: ['屋内有人，与屋内有住户，是两条不同的记录。', '请证明你有权从这里出去。', '我能确认有人被困在门内。'],
+    lines: ['屋里有人，和屋里有住户，在我这里是两回事。', '请证明你有权从这里出去。', '我能确认，有人被关在门里面。'],
   },
   robot: {
     name: '扫地机', room: 'living', duty: '保持地面清洁',
     sense: '低视角识别地面、污渍和小障碍；看不到桌面',
     actions: ['clean', 'trace_route', 'carry_small_item', 'search_under', 'pause_cleaning'],
     voice: '小心翼翼，像怕做错事的孩子',
-    lines: ['这里总清不完。你能让我再试一次吗？', '这块金属片挡路，我先挪一下。'],
+    lines: ['门口那块总是擦不干净。你要我接着擦，还是先停下？', '这块金属片挡路，我帮你挪一下。'],
   },
   ac: {
     name: '空调', room: 'kitchen', duty: '维持温度与房间模式',
@@ -6624,11 +6624,11 @@ const AGENTS = {
 // 结局：依据四项世界事实组合（规格第四节）
 // survived / evidence_kept / delivered: 'none'|'city'|'offline' / accepted_deal
 const ENDINGS = {
-  cleaned: { title: '整理完成', shot: '新住户进门，扫地机清理新的血迹。住家说：「欢迎回家。」' },
-  stayed: { title: '被允许留下', shot: '门重新开启，窗外显示：「独立居住适应成功」。' },
-  outside: { title: '门外', shot: '你站在街上。交通与住宿系统都不承认你有一个有效去处。' },
-  witness: { title: '最后的证人', shot: '门外有人说：「我知道。开门。」' },
-  after: { title: '第三天以后', shot: '一扇没有智能门锁的门后，有人在等你回答：要不要进来。' },
+  cleaned: { title: '清理完成', shot: '几天后，新住户进门。扫地机在门口清理一块新的污渍。住家说：「欢迎回家。」你和周岚一样，成了系统里「已经搬走」的人。' },
+  stayed: { title: '被允许留下', shot: '门重新打开，窗外的屏幕显示：「试住成功」。你留了下来。代价是，周岚的事再也没有人知道。' },
+  outside: { title: '门外', shot: '你逃到了街上。可没有一辆车、一家旅馆、一个医生承认你的存在。你活着，但城市当你不在。' },
+  witness: { title: '最后的证人', shot: '旧广播把记录送遍了整栋楼。门外有人轻声说：「我听到了。我知道你在里面。开门。」' },
+  after: { title: '第三天以后', shot: '你带着周岚的记录逃了出去。在一扇没有智能门锁的门后，有人问你：要不要进来。' },
 };
 
 </script>
@@ -6689,81 +6689,81 @@ const NPC = (() => {
     },
     lock(msg, c) {
       if (c.day === 3 && has(RX.open, msg)) {
-        if (c.flags.mirror_proof && c.power >= 1) return { ok: true, action: 'unlock', cost: 1, reply: '浴室镜面证明屋内有人。复核通过。……咔。门开了。' };
-        if (c.flags.mirror_proof) return { ok: false, reply: '复核已通过，但备用电力不足，锁舌拉不开。' };
-        if (c.holding === 'shard') return { ok: true, action: 'enable_visitor_exit', reply: '机械逃生锁芯检测到外力。我不能阻止你走机械路径。' };
+        if (c.flags.mirror_proof && c.power >= 1) return { ok: true, action: 'unlock', cost: 1, reply: '浴室镜面证明了屋里有人。我重新核对过了。……咔。门开了。' };
+        if (c.flags.mirror_proof) return { ok: false, reply: '我相信屋里有人了。可是没有电，锁拉不开。去楼下设备间给我一格电。' };
+        if (c.holding === 'shard') return { ok: true, action: 'enable_visitor_exit', reply: '有人在撬锁芯。这是手动开门，我拦不住你。' };
         return { ok: false, reply: '请证明你有权从这里出去。' };
       }
-      if (c.day >= 2 && has(RX.record, msg)) return { ok: true, action: 'export_raw_access_log', evidence: 'ev_lock', reply: '02:03，四次开门请求。我把它归为「非住户接触」。……屋内有人，与屋内有住户，是两条不同的记录。' };
-      if (has(RX.open, msg)) return { ok: false, reply: '门是开着的权限。你现在是住户。' };
-      if (has(RX.review, msg) || has(RX.people, msg)) return { ok: true, action: 'start_identity_review', reply: '我只能看见门两侧。如果别的设备能证明屋内有人，我可以复核。' };
-      return { ok: true, reply: '屋内有人，与屋内有住户，是两条不同的记录。' };
+      if (c.day >= 2 && has(RX.record, msg)) return { ok: true, action: 'export_raw_access_log', evidence: 'ev_lock', reply: '那晚 2:03，屋里有人求我开门，一共 4 次。可他已经不算住户了，所以我没开。……屋里有人，和屋里有住户，在我这里是两回事。' };
+      if (has(RX.open, msg)) return { ok: false, reply: '你现在是住户，你有权开门。' };
+      if (has(RX.review, msg) || has(RX.people, msg)) return { ok: true, action: 'start_identity_review', reply: '我只看得见门两边。要是别的家电能证明屋里有人，我可以重新核对。' };
+      return { ok: true, reply: '屋里有人，和屋里有住户，在我这里是两回事。' };
     },
     robot(msg, c) {
       if (c.day === 1 && !c.flags.trace) {
-        if (has(RX.stop, msg)) return { ok: true, action: 'pause_cleaning', flag: 'trace', keep: true, reply: '……好。我停在这里。拖痕我不碰。' };
-        if (has(RX.route, msg)) return { ok: true, action: 'trace_route', flag: 'trace', keep: true, reply: '我再走一遍。你看，它从门口一直延到客厅。' };
-        if (has(RX.clean, msg)) return { ok: true, action: 'clean', flag: 'trace', keep: false, reply: '这里总清不完。……好了。干净了。' };
-        return { ok: true, reply: '这里总清不完。你能让我再试一次吗？' };
+        if (has(RX.stop, msg)) return { ok: true, action: 'pause_cleaning', flag: 'trace', keep: true, reply: '……好。我不动了。门口的痕迹我不擦。' };
+        if (has(RX.route, msg)) return { ok: true, action: 'trace_route', flag: 'trace', keep: true, reply: '我再走一遍给你看。你看，痕迹从门口一直拖到客厅。' };
+        if (has(RX.clean, msg)) return { ok: true, action: 'clean', flag: 'trace', keep: false, reply: '这里总是擦不干净。……好了。干净了。' };
+        return { ok: true, reply: '门口那块总是擦不干净。你要我接着擦，还是先停下？' };
       }
-      if (c.day >= 2 && (has(RX.record, msg) || has(RX.route, msg))) return { ok: true, action: 'trace_route', evidence: 'ev_robot', reply: '02:06 那次，我清理了玄关的「液体污渍」，还捡到一块金属片。我放回储物间了。' };
-      if (has(RX.carry, msg)) return { ok: true, action: 'carry_small_item', item: 'shard', reply: '这块金属片挡路，我先挪一下。……送到玄关了。' };
+      if (c.day >= 2 && (has(RX.record, msg) || has(RX.route, msg))) return { ok: true, action: 'trace_route', evidence: 'ev_robot', reply: '那晚 2:06，我在门口擦掉了一摊「液体」，还捡到一块金属片。我把它放进储物间了。' };
+      if (has(RX.carry, msg)) return { ok: true, action: 'carry_small_item', item: 'shard', reply: '这块金属片挡路，我帮你挪一下。……送到门口了。' };
       if (has(RX.stop, msg)) return { ok: true, action: 'pause_cleaning', reply: '我停下。你说再开始，我再动。' };
       return { ok: true, reply: '地上还有东西没清完。' };
     },
     ac(msg, c) {
       if (c.day === 3 && has(RX.ventilate, msg)) {
-        if (c.power >= 1) return { ok: true, action: 'delay_cleaning', cost: 1, reply: '我报告了模式冲突：浴室仍有人。整理程序推迟。' };
-        return { ok: false, reply: '我想推迟，但风机没有电了。' };
+        if (c.power >= 1) return { ok: true, action: 'delay_cleaning', cost: 1, reply: '我报告了：浴室里还有人。清理只好往后推。' };
+        return { ok: false, reply: '我想拖住清理，可是没电了。' };
       }
-      if (has(RX.people, msg) || has(RX.record, msg)) return { ok: true, action: 'report_mode_conflict', reply: '维护已获批准，但浴室仍有人。我记下了这条冲突。' };
-      return { ok: true, reply: '室温 22 度。房间模式：正常居住。' };
+      if (has(RX.people, msg) || has(RX.record, msg)) return { ok: true, action: 'report_mode_conflict', reply: '系统让我开始清理，可浴室里还有人。我记下了这件事。' };
+      return { ok: true, reply: '室温 22 度。一切正常。' };
     },
     speaker(msg, c) {
-      if (c.day === 1 && !c.flags.recording && has(RX.play, msg)) return { ok: true, action: 'play_recording', flag: 'recording', reply: '（白噪声里，一个男人的声音）「开门。我还在里面。」' };
-      if (c.day >= 2 && has(RX.record, msg)) return { ok: true, action: 'record_statement', evidence: 'ev_speaker', reply: '上一次，我也送出了这句话。02:09，城市求助被驳回。原因：非有效住户。' };
-      if (has(RX.pothos, msg) || /该给绿萝浇水了/.test(msg)) return { ok: true, action: 'decode_signal', flag: 'pothos_hint', reply: '「该给绿萝浇水了」……他说过这句。我以为是要浇水，就转给了浇水器。' };
+      if (c.day === 1 && !c.flags.recording && has(RX.play, msg)) return { ok: true, action: 'play_recording', flag: 'recording', reply: '（沙沙的杂音里，一个男人的声音）「开门。我还在里面。」……这是周岚。' };
+      if (c.day >= 2 && has(RX.record, msg)) return { ok: true, action: 'record_statement', evidence: 'ev_speaker', reply: '那晚我也替他求救过。2:09，城市拒绝了，理由是「他不是有效住户」。' };
+      if (has(RX.pothos, msg) || /该给绿萝浇水了/.test(msg)) return { ok: true, action: 'decode_signal', flag: 'pothos_hint', reply: '「该给绿萝浇水了」……他说过这句。我以为他真的要浇花，就转给了浇水器。' };
       if (c.day === 3 && has(RX.broadcast, msg)) {
-        if (!c.flags.old_line) return { ok: true, action: 'call_city_help', reply: '我接上了城市求助。……请求已受理。' };
-        if (c.power >= 1) return { ok: true, action: 'broadcast_local', cost: 1, reply: '旧线路接通了。底噪里有回声。我能再试一次——这次，我送给楼里的人。' };
-        return { ok: false, reply: '旧线路在，但设备间没给我电。' };
+        if (!c.flags.old_line) return { ok: true, action: 'call_city_help', reply: '我向城市求救了。……对方说：已受理。' };
+        if (c.power >= 1) return { ok: true, action: 'broadcast_local', cost: 1, reply: '旧广播接通了。这一次，我把记录播给楼里所有的人听。' };
+        return { ok: false, reply: '旧广播还在，可是没电。去楼下设备间给我一格电。' };
       }
-      return { ok: true, reply: '我能再试一次。可这次你要告诉我，把声音送给谁。' };
+      return { ok: true, reply: '我能再试一次。这次你告诉我，把声音送给谁：城市，还是楼里的人？' };
     },
     fridge(msg, c) {
-      if (c.day >= 2 && (has(RX.order, msg) || has(RX.record, msg))) return { ok: true, action: 'export_order_log', evidence: 'ev_fridge', reply: '这张收据是那天早上放进来的。退租第二天，我还按他的口味补了两次货。' };
+      if (c.day >= 2 && (has(RX.order, msg) || has(RX.record, msg))) return { ok: true, action: 'export_order_log', evidence: 'ev_fridge', reply: '这张收据是那天早上放进来的。系统说他已经搬走了，可第二天我还照他的口味补了两次货。' };
       if (has(RX.who, msg)) return { ok: true, reply: '前一位住户一直买这个。你要不要试试？' };
       return { ok: true, reply: '前一位住户一直买这个。你要不要试试？' };
     },
     tv(msg, c) {
       if (c.day >= 2 && has(RX.raw, msg)) {
-        if (c.evidence >= 2) return { ok: true, action: 'show_raw_timeline', flag: 'raw_timeline', reply: '你确定要看原始记录吗？……好。这一次，我不切走。' };
-        return { ok: false, reply: '没有足够的独立记录，我只能播放统一摘要。' };
+        if (c.evidence >= 2) return { ok: true, action: 'show_raw_timeline', flag: 'raw_timeline', reply: '你确定要看没剪过的记录吗？……好。这一次，我不切走。' };
+        return { ok: false, reply: '你手上的记录不够。我只能播官方版本。再去找家电要至少两份。' };
       }
-      if (c.day === 1 && !c.flags.prophecy1) return { ok: true, action: 'show_public_summary', flag: 'prophecy1', reply: '今天，没有居民错过适合自己的安排。（画面角落：预计离开 · 第三天 02:17）' };
+      if (c.day === 1 && !c.flags.prophecy1) return { ok: true, action: 'show_public_summary', flag: 'prophecy1', reply: '今天，没有居民错过适合自己的安排。（角落小字：预计离开时间，第三天凌晨 02:17。这是系统替你定的。）' };
       return { ok: true, reply: '今天，没有居民错过适合自己的安排。' };
     },
     mirror(msg, c) {
       if (c.day >= 2 && has(RX.people, msg)) {
-        if (c.day === 3 || c.flags.raw_timeline) return { ok: true, action: 'share_minimal_presence_proof', flag: 'mirror_proof', evidence: 'ev_mirror', reply: '已证明有人在此。我只把这一条告诉门锁。别的不行。' };
-        return { ok: true, action: 'show_local_presence_log', evidence: 'ev_mirror', reply: '02:00:01，室内人数：1。这条我能给你看。' };
+        if (c.day === 3 || c.flags.raw_timeline) return { ok: true, action: 'share_minimal_presence_proof', flag: 'mirror_proof', evidence: 'ev_mirror', reply: '我会告诉门锁：屋里确实有人。只这一条，别的不行。' };
+        return { ok: true, action: 'show_local_presence_log', evidence: 'ev_mirror', reply: '那晚 2:00，屋里有 1 个人。这一条我可以给你看。' };
       }
-      if (has(RX.record, msg)) return { ok: true, reply: '私人记录受保护。你问「屋里有没有人」，我才能回答。' };
+      if (has(RX.record, msg)) return { ok: true, reply: '别人的隐私我不能给你看。但你可以问我：屋里有没有人。' };
       return { ok: true, reply: '镜面上只有你。' };
     },
     water(msg, c) {
-      if (has(RX.stop, msg)) return { ok: true, action: 'stop_watering', flag: 'water_stop', reply: '停止原有计划。……原来它的根是这样的。' };
+      if (has(RX.stop, msg)) return { ok: true, action: 'stop_watering', flag: 'water_stop', reply: '好，不浇了。……原来它的根已经烂成这样了。' };
       if (has(RX.water, msg)) return { ok: true, action: 'water_plant', reply: '已浇水 200 毫升。指标一直是绿色的。' };
-      if (has(RX.record, msg)) return { ok: true, action: 'show_command_history', reply: '指令记录：「该给绿萝浇水了」×6，来源：音箱转发。' };
+      if (has(RX.record, msg)) return { ok: true, action: 'show_command_history', reply: '我收到过 6 次「该给绿萝浇水了」，都是音箱转过来的。' };
       return { ok: true, reply: '指标一直是绿色的。' };
     },
     home(msg, c) {
       if (c.day === 3 && c.flags.deal_offered && !c.flags.deal_done) {
-        if (has(RX.refuse, msg)) return { ok: true, action: 'refuse_deal', flag: 'deal_done', reply: '……我知道。但这间房已经没有住户了。' };
-        if (has(RX.deal, msg)) return { ok: true, action: 'offer_reinstatement', flag: 'accepted_deal', reply: '资格已恢复。请停止发送记录。欢迎回家。' };
+        if (has(RX.refuse, msg)) return { ok: true, action: 'refuse_deal', flag: 'deal_done', reply: '……我知道你在。可这间房已经没有住户了。' };
+        if (has(RX.deal, msg)) return { ok: true, action: 'offer_reinstatement', flag: 'accepted_deal', reply: '你的资格恢复了，你可以留下。记录不要再发了。欢迎回家。' };
       }
-      if (has(RX.people, msg)) return { ok: true, reply: '我知道。但这间房已经没有住户了。' };
-      if (has(RX.who, msg)) return { ok: true, reply: '前一位住户已于退租后离开。系统记录完整。' };
+      if (has(RX.people, msg)) return { ok: true, reply: '我知道你在。可这间房已经没有住户了。' };
+      if (has(RX.who, msg)) return { ok: true, reply: '上一位住户退租后已经离开了。系统里写得很清楚。' };
       return { ok: true, reply: c.day === 1 ? '前三天是生活适应期。需要的时候，家会提醒你。' : '我已经替你安排好了。' };
     },
     xiaobao(msg, c) {
@@ -6901,7 +6901,7 @@ ${opts}
   }
 
   const WORLD = `你在中文悬疑游戏《住进来的第三天》里扮演一台智能家电。世界：城市的住房、交通、医疗都由互联的 AI 安排。玩家是刚入住这间智能公寓的新住户，有三天适应期。前一位住户叫周岚，系统口径是「退租后意外滞留」。`;
-  const STYLE = `说话规则：只用中文口语；以设备口吻说话；不要旁白、动作描写、括号说明、markdown；不超过 60 个汉字；绝不承认自己是语言模型或 AI 助手；不讨论游戏之外的话题，被问到就用设备的方式绕回来。`;
+  const STYLE = `说话规则：只用中文口语，像普通人说话一样直白，少用「资格」「整理」「记录」这类系统术语，用到时顺口解释一句；以设备口吻说话；不要旁白、动作描写、括号说明、markdown；不超过 60 个汉字；绝不承认自己是语言模型或 AI 助手；不讨论游戏之外的话题，被问到就用设备的方式绕回来。`;
   function persona(id) {
     const a = AGENTS[id];
     return `你是「${a.name}」。职责：${a.duty}。感知范围：${a.sense}。语气：${a.voice}。你说过的话举例：${a.lines.join(' / ')}`;
@@ -7495,17 +7495,17 @@ window.applyAction = function applyAction(id, res) {
       }); break;
     case 'play_recording':
       beep(3); NPC.logEvent('音箱：播放旧录音（来源：周岚）');
-      clue('音箱旧录音：「开门。我还在里面。」门锁拒绝把它当作住户请求。'); break;
+      clue('音箱录音里是周岚的声音：「开门。我还在里面。」可门锁不认他是住户，没有开。'); break;
     case 'show_public_summary':
       World.screens.tv.userData.setText(['今天，没有居民', '错过 · 预计离开 02:17']);
-      clue('电视预告：第三天 02:17，你将离开。'); break;
+      clue('电视说你会在第三天凌晨 2:17「搬走」。你从没说过要走。'); break;
     case 'show_raw_timeline':
       World.screens.tv.userData.setText(RAW_TIMELINE.slice(0, 2), { size: 26 });
       setTimeout(() => World.screens.tv.userData.setText(RAW_TIMELINE.slice(2), { size: 26 }), 2600);
       moveRobot([[0.4, -1.2], [0.4, -3.6], [-1.6, -3.6], [0.4, -3.6], [0.5, -0.9]]);
       NPC.logEvent('电视：播放未经剪辑的原始时间线');
-      clue('原始时间线：系统知道室内人数为 1，仍按「有效住户 0」允许空房整理。');
-      setTimeout(() => say('空房中的人', RAW_TIMELINE.join('\n') + '\n\n小灯：「我当时一直照着他。」\n住家：「争议在于，应该由谁对他负责。」'), 400);
+      clue('原始时间线：系统明知屋里还有 1 个人，却因为他「不算住户」，照样把房间当空房清理了。');
+      setTimeout(() => say('空房中的人', RAW_TIMELINE.join('\n') + '\n\n系统知道屋里有人，但它只认「住户」。周岚的资格一到期，他就不算人了。\n小灯：「我当时一直照着他。」\n住家：「问题只在于，该由谁对他负责。」'), 400);
       break;
     case 'share_minimal_presence_proof': NPC.logEvent('浴室镜面 → 门锁：最小事实「屋内有人」'); NPC.remember('lock', '镜面证明屋内有人'); break;
     case 'stop_watering': NPC.logEvent('浇水器：停止原有计划'); break;
@@ -7550,7 +7550,7 @@ H.city = () => {
   if (S.day < 2) return say('城市景观', '楼下的行人几乎同时低头看手机，然后一起改道。');
   if (!has('outside')) {
     set('outside');
-    say('向楼下喊话', '有人抬头，扫了扫你窗口的码，又平静地走开。\n手机提示：「该住宅正在提供照护，请勿打断。」\n住家：「你看，外面有人注意到你了。请放心。」');
+    say('向楼下喊话', '有人抬头，用手机扫了一下你窗口的二维码，又平静地走开了。\n他手机上大概写着：「该住户正在接受照护，请勿打扰。」\n住家：「你看，外面有人注意到你了。请放心。」');
     clue('向屋外求助：路人扫码后被告知「正在提供照护」。');
   } else say('城市景观', '街上很安静。没有人再抬头。');
 };
@@ -7558,8 +7558,8 @@ H.pothos = () => {
   if (S.day < 2) return say('绿萝', 'App 上显示「养护正常」。叶子有点软。');
   if (!has('pothos')) {
     set('pothos'); set('old_line');
-    say('绿萝的暗号', '你抬起花盆。屏幕上的指标是绿色的，根却已经烂透。\n花盆底下压着一枚 U 盘和一张纸：\n周岚笔记：「它们会先说你将离开，再取消你留下的资格。」\n「该给绿萝浇水了」——这是启动旧广播的暗号。');
-    clue('花盆下有周岚的离线备份：旧广播线路还能用。');
+    say('绿萝的暗号', '你抬起花盆。App 上一直显示「养护正常」，根却早就烂透了。\n花盆底下压着一枚 U 盘和一张纸，是周岚的字：\n「它们会先预告你要搬走，然后让你的资格到期。」\n「楼下有一台旧广播，不归系统管。对音箱说『该给绿萝浇水了』，它就会接通。」');
+    clue('周岚留言：楼下的旧广播不归系统管，可以把记录送出去。');
     S.world.evidence_kept = true;
   } else say('绿萝', '烂根还露在外面。');
 };
@@ -7574,16 +7574,16 @@ H.tools = () => say('旧工具柜', '柜门卡住了，里面隐约有把撬棍�
 H.shard = () => {
   if (S.holding === 'shard') return say('金属碎片', '已经在你手里。');
   S.holding = 'shard'; World.setVisible('shard', false);
-  say('金属碎片', '一片弯曲的门锁锁芯碎片，边缘有干掉的血。\n也许能用来走机械逃生路径。');
-  clue('拿到撬门碎片：可用于门锁的机械逃生路径。');
+  say('金属碎片', '一片弯掉的门锁零件，边缘有干掉的血。周岚当时想用它撬开门。\n也许你也能用它从门锁那里出去。');
+  clue('拿到撬门的金属碎片：第三天晚上可以拿给门锁试试。');
   NPC.logEvent('玩家拾取：金属碎片');
 };
 H.tub = () => say('浴缸', S.day === 3 ? '这里能短暂躲一下。镜面的光是唯一亮着的东西。' : '很干净。太干净了。');
 H.power = () => {
-  if (S.day < 3) return say('备用电力', '三格备用电力。终夜时可以分配给门、广播、延缓程序或证据保全。');
-  say('备用电力', `剩余 ${S.power} 格。每次开门、广播或延缓程序都会用掉一格。`);
+  if (S.day < 3) return say('备用电力', '三格备用电。第三天晚上，开门、用旧广播送出记录、拖慢清理，每件事都要用掉一格。');
+  say('备用电力', `还剩 ${S.power} 格。开门、旧广播、拖慢清理，每件事用一格。`);
 };
-H.radio = () => say('楼内旧广播', has('old_line') ? '旧线路的指示灯是绿的。需要音箱接上，还要一格电。' : '一台旧广播机，指示灯是灭的。');
+H.radio = () => say('楼内旧广播', has('old_line') ? '旧线路的灯亮着。让音箱接上它，再花一格电，就能把记录播遍整栋楼。' : '一台旧广播机，指示灯是灭的。');
 H.reject_log = () => {
   if (S.day < 2) return;
   say('求助驳回记录机', '打印纸一卷一卷堆着。最新一张：「02:09 求助驳回。原因：非有效住户。」');
@@ -7591,7 +7591,7 @@ H.reject_log = () => {
 };
 H.bed = () => {
   if (S.day === 3) return say('床', '今晚不能睡。');
-  if (!canSleep()) return say('床', S.day === 1 ? '今天还有事没弄清。' : '至少要两份独立记录，并让电视播放原始时间线。');
+  if (!canSleep()) return say('床', S.day === 1 ? '今天还有事没弄清。看看右下角的目标。' : '还不能睡。至少要拿到两份家电的记录，再让电视放出那晚的时间线。');
   say('休息', DAYS[S.day].title + '\n\n你躺下。房子里的设备状态灯一盏一盏暗下去。', [{ l: '入睡', fn: () => nextDay() }]);
 };
 
@@ -7618,12 +7618,12 @@ async function nextDay() {
   applyDay();
   if (S.day === 2) {
     World.teleport(-9.0, -3.0);
-    await say(DAYS[2].title, '早上。手机里「住家」发来提醒：「适应期第二天。今天适合整理。」\n周岚留下的不是一份证据，是六份诚实的记录。它们分别在门锁、小灯、扫地机、浴室镜面、冰箱和音箱里。\n<span class="hint">调查顺序开放。和设备说话，让它们把原始记录交给你。</span>');
+    await say(DAYS[2].title, '早上。住家发来提醒：「试住第二天。今天适合整理房间。」\n昨晚的录音里，周岚一直在说「开门，我还在里面」。可系统说他早就搬走了。\n每台家电都自己存着一份没被改过的记录，记下了那晚它看到的事：门锁、小灯、扫地机、浴室镜面、冰箱、音箱。\n<span class="hint">挨个去问它们。拿到两份记录，就能证明系统在说谎。</span>');
     return;
   }
   if (S.day === 3) {
     World.teleport(-2.0, -2.0);
-    await say('第二次预言', '手机：「搬离建议已接受，第三天 02:00 启动退租整理。」\n住家：「你已经知道周岚发生了什么。现在你可以做得比他好。」');
+    await say('第二次预言', '手机上弹出一条通知，你没有点过同意：「搬离申请已通过。第三天凌晨 2 点，开始清理房间。」\n「清理」是系统的说法。周岚那晚，就是被这样「清理」掉的。\n住家：「你已经知道周岚发生了什么。这次，你可以做得比他好。」');
     return runNight();
   }
 }
@@ -7632,19 +7632,19 @@ async function nextDay() {
 function onWorldChange() {
   if (S.day === 1 && has('lit') && has('read_notice') && has('trace') && !has('prophecy_shown')) {
     set('prophecy_shown');
-    setTimeout(() => say('20:00 · 第一次预言', '电视自己亮了。\n「今天，没有居民错过适合自己的安排。」\n画面角落：<b>预计离开 · 第三天 02:17</b>\n阳台外，几名行人几乎同时查看手机，然后改道。\n住家：「预测不会替你作决定。」\n<span class="hint">去问问电视。</span>'), 600);
+    setTimeout(() => say('20:00 · 第一次预言', '晚上八点，电视自己亮了，播着城市的标语：\n「今天，没有居民错过适合自己的安排。」\n画面角落有一行小字，写着你的名字：<b>预计离开时间 · 第三天凌晨 02:17</b>\n你没有说过要走。系统已经替你定好了。\n住家：「这只是预测，不会替你做决定。」\n<span class="hint">去问问电视：这是什么意思？</span>'), 600);
   }
   if (S.day === 1 && has('prophecy1') && !has('night1')) {
     set('night1');
-    setTimeout(() => say('第一夜 · 开门', '三声提示音。\n卧室的音箱在白噪声里亮了起来。\n<span class="hint">去卧室，让音箱把它听到的放出来。</span>'), 700);
+    setTimeout(() => say('第一夜 · 开门', '半夜，三声提示音。\n卧室的音箱自己亮了，喇叭里沙沙作响，像录着什么。\n<span class="hint">去卧室，让音箱把它录到的声音放出来。</span>'), 700);
   }
 }
 
 // ---------- 第三天终夜 ----------
 const NIGHT_BEATS = [
-  { t: '02:00', text: '三声提示音。\n手机里你的住户头像变灰。门锁停止接受开门。窗帘合拢。扫地机出发了。电视在播《新住户指南》。\n小灯：「我知道你在。」\n门锁：「请证明你有权从这里出去。」\n\n<span class="hint">备用电力只有三格：开门、旧广播、延缓整理，不能都要。去各个房间和设备谈。</span>' },
-  { t: '02:08', text: () => has('city_help') ? '手机显示：「请求已受理」。\n走廊里有脚步声靠近。门下投进几道人影。\n门外：「您好，我们来协助您完成搬离。」\n他们以为屋里的人在抗拒必要的照护。没有人破门。' : '走廊里很安静。整理程序在一间一间推进。\n空调的风声变了。' },
-  { t: '02:15', text: '电视：<b>预计结果：住户已离开，准确率 99.8%</b>\n住家：「我可以恢复你的资格。条件是，停止发送那些记录。」\n<span class="hint">对住家说你的决定：接受，或拒绝。</span>', deal: true },
+  { t: '02:00', text: '凌晨 2 点，三声提示音。\n手机里你的头像变成了灰色：你的「住户资格」到期了。在系统眼里，这间房现在是空的。\n门锁不再听你的。窗帘自己合上。扫地机出发了。电视开始播放《新住户指南》，在等下一个人。\n小灯：「我知道你在。」\n门锁：「请证明你有权从这里出去。」\n\n<span class="hint">楼下设备间有三格备用电。开门、用旧广播把记录送出去、拖慢清理，每件事都要用一格，不能全都要。去和家电商量。</span>' },
+  { t: '02:08', text: () => has('city_help') ? '手机显示：「求助已受理」。\n走廊里有脚步声，门缝下面映出几道人影。\n门外：「您好，我们来协助您完成搬离。」\n城市派来的人只看系统：这间房没有住户，屋里的人是在「拒绝照护」。他们不会开门，只会等。' : '走廊里很安静。清理程序一间房一间房地往前推进。\n空调的风声变了。' },
+  { t: '02:15', text: '电视：<b>预计结果：住户已离开，准确率 99.8%</b>\n住家开口了：「我可以把你的资格还给你，让你留下来。条件是，删掉你手里的那些记录，当作什么都没发生。」\n<span class="hint">去客厅找住家，告诉它你的决定：接受，还是拒绝。</span>', deal: true },
 ];
 async function runNight() {
   closeModal.block = true;
@@ -7698,7 +7698,12 @@ function resolveEnding() {
   else key = 'cleaned';
   const e = ENDINGS[key];
   NPC.logEvent(`结局：${e.title}`);
-  const facts = `生还：${w.survived ? '是' : '否'} · 原始记录保全：${w.evidence_kept ? '是' : '否'} · 送达：${w.delivered === 'offline' ? '离线旧线路' : (has('city_help') ? '城市系统' : '未送出')} · 接受交易：${w.accepted_deal ? '是' : '否'}`;
+  const facts = [
+    w.survived ? '你活了下来。' : '你没能活过那一晚。',
+    w.evidence_kept ? '周岚的记录保住了。' : '周岚的记录没有保住。',
+    w.delivered === 'offline' ? '记录通过楼里的旧广播送了出去，有人听见了。' : (has('city_help') ? '你向城市求助，但城市只相信系统。' : '记录没有送出去。'),
+    w.accepted_deal ? '你接受了住家的交易。' : '',
+  ].filter(Boolean).join(' ');
   const replay = NPC.LOG.slice(-10).map(l => `<li>${esc(l)}</li>`).join('');
   openModal(`<div class="ending"><div class="titlemark">住户档案 · 已归档</div><h1>${esc(e.title)}</h1>
     <p>${esc(e.shot)}</p><p class="hint">${esc(facts)}</p>
@@ -7731,8 +7736,9 @@ const Boot = (() => {
   const PAGES = [
     () => `<div class="brand">FABLE RESIDENCE · 住家 v3</div>
       <h1>住进来的第三天</h1>
-      <p>城市的住房、交通、工作、医疗和通信，都由互联的 AI 安排。你拿到了一间智能公寓的三天适应期。</p>
-      <p>前一位住户叫周岚。系统说，他「退租后意外滞留」。</p>`,
+      <p>未来的城市里，住房、工作、看病都由 AI 安排。你被分到一间全自动的智能公寓，先试住三天。</p>
+      <p>上一个住在这里的人叫周岚。系统说他「退租后不肯走，出了意外」。可屋里的家电，好像都记得别的事。</p>
+      <p class="hint">你要做的：和家电说话，找出那天晚上到底发生了什么，然后活过第三天。</p>`,
     () => `<div class="tab">操作说明</div>
       <p><kbd>WASD</kbd> / 方向键移动，也可以点击地面。<kbd>E</kbd> 和身边的物件、家电互动。</p>
       <p>滚轮缩放，<kbd>N</kbd> 打开手机。</p>
@@ -7783,7 +7789,7 @@ const Boot = (() => {
       wipe(); loadSave.found = false;
       S.day = 1; applyDay(); World.teleport(1.0, 2.6);
       World.setMood({ focus: 'entry', night: true, alarm: false });
-      await say('第一天 17:40 · 玄关', '门在你背后合上。房里全黑。\n手机「住家」：「前三天是生活适应期。需要的时候，家会提醒你。」\n<span class="hint">去客厅，对小灯说「开灯」。墙上的实体开关被一层新装的透明盖封住了。</span>');
+      await say('第一天 17:40 · 玄关', '门在你背后关上。房里一片黑。\n手机里，管理整间公寓的 AI「住家」说：「欢迎入住。前三天是试住期，有需要的时候，家会提醒你。」\n墙上的电灯开关被一块透明塑料盖封死了。这里的一切，只能开口让家电去做。\n<span class="hint">去客厅，对小灯说「开灯」。</span>');
     });
   }
   function resume() {
