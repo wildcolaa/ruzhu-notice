@@ -802,9 +802,39 @@ const World = (() => {
   led('robot', robot, 0.32);
   reg('robot', robot, '扫地机', [-0.2, -1.4]);
 
-  const blood = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.22), new THREE.MeshBasicMaterial({ color: 0x5a1410, transparent: true, opacity: 0.0, depthWrite: false }));
-  blood.rotation.x = -Math.PI / 2; blood.position.set(1.0, 0.012, 1.2); blood.userData.keep = true;
-  roomRoot.entry.add(blood);
+  // 门口的拖痕：从入户门内侧拐向客厅门洞的一道暗红擦痕（扫地机来回拖出来的），贴在玄关地板上
+  function trailTex() {
+    const W = 512, Hh = 256, c = document.createElement('canvas'); c.width = W; c.height = Hh;
+    const g = c.getContext('2d');
+    // 平面覆盖 x[-1.45,1.75] z[0.25,1.65]；u = (x+1.45)/3.2，v = (z-0.25)/1.4
+    const P = (x, z) => [(x + 1.45) / 3.2 * W, (z - 0.25) / 1.4 * Hh];
+    const pts = [[1.15, 0.55], [1.0, 0.95], [0.55, 1.2], [-0.1, 1.15], [-0.6, 0.85], [-0.9, 0.45]].map(([x, z]) => P(x, z));
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    // 几道平行的擦痕，宽窄、浓淡不一
+    for (let k = 0; k < 7; k++) {
+      const off = (k - 3) * 5 + (Math.random() - 0.5) * 3;
+      g.strokeStyle = `rgba(${150 + k * 10},${24 + k * 3},${18},${0.55 + Math.random() * 0.4})`;
+      g.lineWidth = 4 + Math.random() * 8;
+      g.beginPath();
+      pts.forEach(([x, y], i) => { const yy = y + off + (Math.random() - 0.5) * 2; i ? g.lineTo(x, yy) : g.moveTo(x, yy); });
+      g.stroke();
+    }
+    // 门口那一端更深，像积在那里
+    const [dx, dy] = pts[0];
+    const rg = g.createRadialGradient(dx, dy, 2, dx, dy, 34); rg.addColorStop(0, 'rgba(120,14,10,.95)'); rg.addColorStop(1, 'rgba(120,14,10,0)');
+    g.fillStyle = rg; g.fillRect(dx - 40, dy - 40, 80, 80);
+    // 扫地机的轮子印
+    g.fillStyle = 'rgba(140,26,18,.75)';
+    for (let i = 0; i < 26; i++) { const t = i / 25, j = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), f = t * (pts.length - 1) - j;
+      const x = pts[j][0] + (pts[j + 1][0] - pts[j][0]) * f, y = pts[j][1] + (pts[j + 1][1] - pts[j][1]) * f;
+      g.fillRect(x - 2, y - 24, 4, 3); g.fillRect(x - 2, y + 21, 4, 3); }
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+  }
+  const trailG = group(0.15, 0, 0.95);
+  const blood = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.4), new THREE.MeshBasicMaterial({ map: trailTex(), transparent: true, opacity: 0.0, depthWrite: false }));
+  blood.rotation.x = -Math.PI / 2; blood.position.set(0, 0.012, 0); blood.userData.keep = true;
+  trailG.add(blood);
+  reg('trail', trailG, '门口的拖痕', [0.6, 1.9]);
 
   // 厨房：冰箱（订单屏）、废物盒
   const fridge = group(2.0, 0, -5.4);
@@ -1434,7 +1464,7 @@ const World = (() => {
   const WM = 0.36, PR = 0.26, ROBOT_R = 0.32;
   // 楼梯两侧：只能从梯子两头上下
   const STAIR_SIDES = [{ x0: -8.3, x1: -6.0, z0: 1.9, z1: 2.0 }, { x0: -8.3, x1: -6.0, z0: 3.6, z1: 3.7 }];
-  const NO_COLLIDE = new Set(['de_rug', 'st_door', 'robot', 'shard', 'scratch', 'status', 'city', 'home', 'ac']);
+  const NO_COLLIDE = new Set(['trail', 'de_rug', 'st_door', 'robot', 'shard', 'scratch', 'status', 'city', 'home', 'ac']);
   let colliders = [];
   function chainVisible(o, stop) {
     for (let p = o; p && p !== stop; p = p.parent) if (!p.visible) return false;

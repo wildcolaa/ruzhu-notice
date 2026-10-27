@@ -62,17 +62,17 @@ window.applyAction = function applyAction(id, res) {
       break;
     case 'replay_motion': NPC.logEvent('小灯：回放 01:52–02:14 运动轨迹'); break;
     case 'pause_cleaning':
-      if (res.keep) { World.blood.material.opacity = 0.55; clue('扫地机在门口留下极浅的暗红拖痕，你让它停下了。'); }
+      if (res.keep) { World.blood.material.opacity = 0.95; clue('扫地机在门口留下暗红拖痕，你让它停下了。'); }
       NPC.logEvent('扫地机：暂停清洁'); break;
     case 'trace_route':
       if (res.keep) {
-        World.blood.material.opacity = 0.75;
+        World.blood.material.opacity = 1;
         moveRobot([[-0.9, -0.6], [-0.9, 0.9], [0.2, 1.2], [1.8, 1.4], [0.2, 1.2], [-0.9, 0.9], [-0.9, -0.6], [0.5, -0.9]]);
         clue('扫地机重走路线：拖痕从门口一直延到客厅。');
       }
       NPC.logEvent('扫地机：回放清洁路线'); break;
     case 'clean':
-      World.blood.material.opacity = 0;
+      World.blood.material.opacity = 0; set('trace_cleaned');
       moveRobot([[-0.9, -0.6], [-0.9, 0.9], [0.8, 1.2], [1.6, 1.6], [-0.9, 0.9], [-0.9, -0.6], [0.5, -0.9]]);
       NPC.logEvent('扫地机：清理玄关污渍');
       clue('扫地机清掉了门口的暗红痕迹。门锁和小灯的记录还在。'); break;
@@ -123,6 +123,15 @@ DEVICE_IDS.forEach(id => { H[id] = () => openChat(id); });
 H.notice = () => { showNotice(); if (!has('read_notice')) { set('read_notice'); clue('《住户须知》：听见屋内有人说开门，请确认对方仍是本房住户。'); } };
 H.scratch = () => say('门框内侧', has('lit') ? '新漆下面有几道划痕，高度在腰部，像有人用金属片撬过。' : '太暗了，看不清。');
 H.status = () => say('状态屏', S.day === 3 ? '住户：<b>已终止</b><br>室内整理：进行中' : '住户：已确认<br>适应期：第 ' + S.day + ' 天');
+// 门口的拖痕：第一天的目标物。看完会提示去找扫地机处理（让它停下 / 重走路线 / 清理）
+H.trail = () => {
+  if (has('trace_cleaned')) return say('门口', '地板很干净，干净得能照出灯。只有地板缝里还留着一点暗色。');
+  if (has('trace')) return say('门口的拖痕', '暗红色的擦痕从入户门内侧拐向客厅门洞，几道平行的线，两侧有一排小小的轮印。<br>扫地机的路线。');
+  say('门口的拖痕', '入户门内侧的地板上有一道暗红色的擦痕，几道平行的线，一直拐进客厅。两侧是一排小小的轮印。<br>客厅里的扫地机亮着灯，好像在等你开口。', [
+    { l: '去和扫地机说话', fn: () => openChat('robot') },
+    { l: '先不管它', fn: () => {} },
+  ]);
+};
 H.sofa = () => say('沙发', '坐垫上有个凹陷，形状和你不一样。');
 H.shoes = () => say('鞋柜', '里面有一双不属于你的旧皮鞋，鞋底沾着干掉的暗色。');
 H.waste = () => {

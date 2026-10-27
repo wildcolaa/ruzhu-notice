@@ -4945,9 +4945,39 @@ const World = (() => {
   led('robot', robot, 0.32);
   reg('robot', robot, '扫地机', [-0.2, -1.4]);
 
-  const blood = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.22), new THREE.MeshBasicMaterial({ color: 0x5a1410, transparent: true, opacity: 0.0, depthWrite: false }));
-  blood.rotation.x = -Math.PI / 2; blood.position.set(1.0, 0.012, 1.2); blood.userData.keep = true;
-  roomRoot.entry.add(blood);
+  // 门口的拖痕：从入户门内侧拐向客厅门洞的一道暗红擦痕（扫地机来回拖出来的），贴在玄关地板上
+  function trailTex() {
+    const W = 512, Hh = 256, c = document.createElement('canvas'); c.width = W; c.height = Hh;
+    const g = c.getContext('2d');
+    // 平面覆盖 x[-1.45,1.75] z[0.25,1.65]；u = (x+1.45)/3.2，v = (z-0.25)/1.4
+    const P = (x, z) => [(x + 1.45) / 3.2 * W, (z - 0.25) / 1.4 * Hh];
+    const pts = [[1.15, 0.55], [1.0, 0.95], [0.55, 1.2], [-0.1, 1.15], [-0.6, 0.85], [-0.9, 0.45]].map(([x, z]) => P(x, z));
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    // 几道平行的擦痕，宽窄、浓淡不一
+    for (let k = 0; k < 7; k++) {
+      const off = (k - 3) * 5 + (Math.random() - 0.5) * 3;
+      g.strokeStyle = `rgba(${150 + k * 10},${24 + k * 3},${18},${0.55 + Math.random() * 0.4})`;
+      g.lineWidth = 4 + Math.random() * 8;
+      g.beginPath();
+      pts.forEach(([x, y], i) => { const yy = y + off + (Math.random() - 0.5) * 2; i ? g.lineTo(x, yy) : g.moveTo(x, yy); });
+      g.stroke();
+    }
+    // 门口那一端更深，像积在那里
+    const [dx, dy] = pts[0];
+    const rg = g.createRadialGradient(dx, dy, 2, dx, dy, 34); rg.addColorStop(0, 'rgba(120,14,10,.95)'); rg.addColorStop(1, 'rgba(120,14,10,0)');
+    g.fillStyle = rg; g.fillRect(dx - 40, dy - 40, 80, 80);
+    // 扫地机的轮子印
+    g.fillStyle = 'rgba(140,26,18,.75)';
+    for (let i = 0; i < 26; i++) { const t = i / 25, j = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), f = t * (pts.length - 1) - j;
+      const x = pts[j][0] + (pts[j + 1][0] - pts[j][0]) * f, y = pts[j][1] + (pts[j + 1][1] - pts[j][1]) * f;
+      g.fillRect(x - 2, y - 24, 4, 3); g.fillRect(x - 2, y + 21, 4, 3); }
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+  }
+  const trailG = group(0.15, 0, 0.95);
+  const blood = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.4), new THREE.MeshBasicMaterial({ map: trailTex(), transparent: true, opacity: 0.0, depthWrite: false }));
+  blood.rotation.x = -Math.PI / 2; blood.position.set(0, 0.012, 0); blood.userData.keep = true;
+  trailG.add(blood);
+  reg('trail', trailG, '门口的拖痕', [0.6, 1.9]);
 
   // 厨房：冰箱（订单屏）、废物盒
   const fridge = group(2.0, 0, -5.4);
@@ -5577,7 +5607,7 @@ const World = (() => {
   const WM = 0.36, PR = 0.26, ROBOT_R = 0.32;
   // 楼梯两侧：只能从梯子两头上下
   const STAIR_SIDES = [{ x0: -8.3, x1: -6.0, z0: 1.9, z1: 2.0 }, { x0: -8.3, x1: -6.0, z0: 3.6, z1: 3.7 }];
-  const NO_COLLIDE = new Set(['de_rug', 'st_door', 'robot', 'shard', 'scratch', 'status', 'city', 'home', 'ac']);
+  const NO_COLLIDE = new Set(['trail', 'de_rug', 'st_door', 'robot', 'shard', 'scratch', 'status', 'city', 'home', 'ac']);
   let colliders = [];
   function chainVisible(o, stop) {
     for (let p = o; p && p !== stop; p = p.parent) if (!p.visible) return false;
@@ -7439,17 +7469,17 @@ window.applyAction = function applyAction(id, res) {
       break;
     case 'replay_motion': NPC.logEvent('小灯：回放 01:52–02:14 运动轨迹'); break;
     case 'pause_cleaning':
-      if (res.keep) { World.blood.material.opacity = 0.55; clue('扫地机在门口留下极浅的暗红拖痕，你让它停下了。'); }
+      if (res.keep) { World.blood.material.opacity = 0.95; clue('扫地机在门口留下暗红拖痕，你让它停下了。'); }
       NPC.logEvent('扫地机：暂停清洁'); break;
     case 'trace_route':
       if (res.keep) {
-        World.blood.material.opacity = 0.75;
+        World.blood.material.opacity = 1;
         moveRobot([[-0.9, -0.6], [-0.9, 0.9], [0.2, 1.2], [1.8, 1.4], [0.2, 1.2], [-0.9, 0.9], [-0.9, -0.6], [0.5, -0.9]]);
         clue('扫地机重走路线：拖痕从门口一直延到客厅。');
       }
       NPC.logEvent('扫地机：回放清洁路线'); break;
     case 'clean':
-      World.blood.material.opacity = 0;
+      World.blood.material.opacity = 0; set('trace_cleaned');
       moveRobot([[-0.9, -0.6], [-0.9, 0.9], [0.8, 1.2], [1.6, 1.6], [-0.9, 0.9], [-0.9, -0.6], [0.5, -0.9]]);
       NPC.logEvent('扫地机：清理玄关污渍');
       clue('扫地机清掉了门口的暗红痕迹。门锁和小灯的记录还在。'); break;
@@ -7500,6 +7530,15 @@ DEVICE_IDS.forEach(id => { H[id] = () => openChat(id); });
 H.notice = () => { showNotice(); if (!has('read_notice')) { set('read_notice'); clue('《住户须知》：听见屋内有人说开门，请确认对方仍是本房住户。'); } };
 H.scratch = () => say('门框内侧', has('lit') ? '新漆下面有几道划痕，高度在腰部，像有人用金属片撬过。' : '太暗了，看不清。');
 H.status = () => say('状态屏', S.day === 3 ? '住户：<b>已终止</b><br>室内整理：进行中' : '住户：已确认<br>适应期：第 ' + S.day + ' 天');
+// 门口的拖痕：第一天的目标物。看完会提示去找扫地机处理（让它停下 / 重走路线 / 清理）
+H.trail = () => {
+  if (has('trace_cleaned')) return say('门口', '地板很干净，干净得能照出灯。只有地板缝里还留着一点暗色。');
+  if (has('trace')) return say('门口的拖痕', '暗红色的擦痕从入户门内侧拐向客厅门洞，几道平行的线，两侧有一排小小的轮印。<br>扫地机的路线。');
+  say('门口的拖痕', '入户门内侧的地板上有一道暗红色的擦痕，几道平行的线，一直拐进客厅。两侧是一排小小的轮印。<br>客厅里的扫地机亮着灯，好像在等你开口。', [
+    { l: '去和扫地机说话', fn: () => openChat('robot') },
+    { l: '先不管它', fn: () => {} },
+  ]);
+};
 H.sofa = () => say('沙发', '坐垫上有个凹陷，形状和你不一样。');
 H.shoes = () => say('鞋柜', '里面有一双不属于你的旧皮鞋，鞋底沾着干掉的暗色。');
 H.waste = () => {
@@ -7569,6 +7608,8 @@ function applyDay() {
   if (World.lamps.lampShade) World.lamps.lampShade.material = World.toon(has('lit') || S.day > 1 ? 0xf2d79a : 0x3a3428, has('lit') || S.day > 1 ? 0x8a6a20 : 0);
   lampLook();
   if (S.holding === 'shard') World.setVisible('shard', false);
+  // 拖痕：第一天一进门就看得见；让扫地机停下 / 重走路线后更清楚；清理后消失
+  World.blood.material.opacity = has('trace_cleaned') ? 0 : (has('trace') ? 0.95 : 0.8);
   refreshHUD();
 }
 

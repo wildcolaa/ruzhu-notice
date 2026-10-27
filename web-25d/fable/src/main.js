@@ -9,6 +9,8 @@ function applyDay() {
   if (World.lamps.lampShade) World.lamps.lampShade.material = World.toon(has('lit') || S.day > 1 ? 0xf2d79a : 0x3a3428, has('lit') || S.day > 1 ? 0x8a6a20 : 0);
   lampLook();
   if (S.holding === 'shard') World.setVisible('shard', false);
+  // 拖痕：第一天一进门就看得见；让扫地机停下 / 重走路线后更清楚；清理后消失
+  World.blood.material.opacity = has('trace_cleaned') ? 0 : (has('trace') ? 0.95 : 0.8);
   refreshHUD();
 }
 
