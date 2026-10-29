@@ -60,6 +60,12 @@ function pixTitle(cv, lines, bright) {
   }
   o.putImageData(out, 0, 0);
 }
+// 家电手绘头像（fable/ui/dev_*.webp，由 ui_src/dev/*.png 经 dev_icons.py 转成荧光终端色）
+function devIcon(id) { return id && typeof UI_IMG !== 'undefined' ? UI_IMG['dev_' + id] || null : null; }
+// 动态里按设备名找头像（「门锁：……」「对小灯说……」）
+const DEV_NAMES = () => Object.entries(AGENTS).map(([k, a]) => [k, a.name]).concat([['pc', '旧电脑'], ['pc', 'ZL-0217']]).sort((a, b) => b[1].length - a[1].length);
+function devIconInText(t) { const ns = DEV_NAMES(); const hit = ns.find(([, n]) => t.startsWith(n)) || ns.find(([, n]) => t.includes(n)); return hit ? devIcon(hit[0]) : null; }
+function icImg(src, cls) { return src ? `<img class="${cls}" alt="" src="${src}">` : ''; }
 function paintBadge() {
   // 软盘标签：铅笔侧颜 + 黑色刷痕（fable/ui/portrait.webp、grunge.webp）
   const el = $('badge'); if (!el) return;
@@ -259,11 +265,11 @@ function openPhone(tab) {
   if (tab === 'xb') return openChat('xiaobao', { phone: true });
   let body;
   if (tab === 'rec') {
-    const ev = Object.entries(EVIDENCE).filter(([k]) => has(k)).map(([, e]) => `<li>${esc(e.text)}</li>`).join('') || '<li class="ph-empty">还没有导出任何原始记录。</li>';
+    const ev = Object.entries(EVIDENCE).filter(([k]) => has(k)).map(([, e]) => `<li class="${devIcon(e.from) ? 'ph-ic' : ''}">${icImg(devIcon(e.from), 'li-ic')}<span>${esc(e.text)}</span></li>`).join('') || '<li class="ph-empty">还没有导出任何原始记录。</li>';
     const raw = has('raw_timeline') ? `<h3>原始时间线</h3><pre class="rawlog">${RAW_TIMELINE.map(esc).join('\n')}</pre>` : '';
     body = `<h3>已导出的原始记录 · ${evidenceCount()} / ${Object.keys(EVIDENCE).length}</h3><ul class="ph-list">${ev}</ul>${raw}`;
   } else {
-    const log = NPC.LOG.slice(-20).reverse().map(l => { const m = /^(\d\d:\d\d)\s+(.*)$/.exec(l); return m ? `<li><time>${esc(m[1])}</time>${esc(m[2])}</li>` : `<li>${esc(l)}</li>`; }).join('') || '<li class="ph-empty">暂无住宅动态。</li>';
+    const log = NPC.LOG.slice(-20).reverse().map(l => { const m = /^(\d\d:\d\d)\s+(.*)$/.exec(l); const ic = devIconInText(m ? m[2] : l); return `<li class="${ic ? 'ph-ic' : ''}">${icImg(ic, 'li-ic')}<span>${m ? `<time>${esc(m[1])}</time>${esc(m[2])}` : esc(l)}</span></li>`; }).join('') || '<li class="ph-empty">暂无住宅动态。</li>';
     body = `<h3>住宅动态</h3><ul class="ph-list ph-feed">${log}</ul>`;
   }
   openModal(phoneShell(body, tab), sh => wirePhone(sh));
@@ -357,14 +363,16 @@ async function openChat(id, opt) {
   const a = AGENTS[id];
   S.chat[id] = S.chat[id] || [];
   const hist = S.chat[id];
-  const html = `<h2>${esc(a.name)}<span class="hint" style="margin-left:10px">${esc(a.duty)} · ${esc(NPC.aiLabel())}</span></h2>
-    <p class="hint">感知：${esc(a.sense)}</p>
+  const ic = devIcon(id);
+  const html = `<div class="dev-head${ic ? '' : ' no-ic'}">${ic ? `<div class="dev-por" aria-hidden="true"><img alt="" src="${ic}"><i></i></div>` : ''}<div>
+    <h2>${esc(a.name)}<span class="hint" style="margin-left:10px">${esc(a.duty)} · ${esc(NPC.aiLabel())}</span></h2>
+    <p class="hint">感知：${esc(a.sense)}</p></div></div>
     <div class="chatlog" id="log" aria-live="polite"></div>
     ${chipsHtml(id)}<div class="row"><input id="msg" placeholder="按住空格说话，或打字后回车" aria-label="对设备说话" autocomplete="off"/><button class="mic" id="mic" type="button" aria-label="按住说话" title="按住说话"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="primary" id="send" style="margin-top:0">发送</button></div>
     <p class="hint" id="vstatus" aria-live="polite"></p>
     <button class="primary" id="bye">结束对话</button>`;
   const body = opt.phone
-    ? `<h3>小饱 · 手机陪伴 <span class="hint">${esc(NPC.aiLabel())}</span></h3>
+    ? `<h3 class="ph-xbh">${icImg(ic, 'ph-xbic')}小饱 · 手机陪伴 <span class="hint">${esc(NPC.aiLabel())}</span></h3>
       <div class="chatlog ph-chat" id="log" aria-live="polite"></div>
       ${chipsHtml(id)}<div class="row"><input id="msg" placeholder="按住空格说话，或打字回车" aria-label="对小饱说话" autocomplete="off"/>${html.match(/<button class="mic"[\s\S]*?<\/button>/)[0]}<button id="send" class="ph-send" type="button" aria-label="发送">↑</button></div>
       <p class="hint" id="vstatus" aria-live="polite"></p><button id="bye" hidden></button>`
@@ -373,8 +381,8 @@ async function openChat(id, opt) {
     if (opt.phone) wirePhone(sh);
     const log = sh.querySelector('#log');
     const render = opt.phone
-      ? () => { log.innerHTML = hist.map(h => `<p class="bub ${h.who === 'me' ? 'bub-me' : 'bub-it'}">${esc(h.text)}</p>`).join('') || '<p class="ph-empty">和小饱说点什么吧。</p>'; log.scrollTop = 1e6; }
-      : () => { log.innerHTML = hist.map(h => `<p><span class="${h.who === 'me' ? 'me' : 'who'}">${h.who === 'me' ? '你' : esc(a.name)}：</span>${esc(h.text)}</p>`).join(''); log.scrollTop = 1e6; };
+      ? () => { log.innerHTML = hist.map(h => h.who === 'me' ? `<p class="bub bub-me">${esc(h.text)}</p>` : `<div class="bub-row">${icImg(ic, 'bub-ic')}<p class="bub bub-it">${esc(h.text)}</p></div>`).join('') || '<p class="ph-empty">和小饱说点什么吧。</p>'; log.scrollTop = 1e6; }
+      : () => { log.innerHTML = hist.map(h => `<p>${h.who === 'me' ? '' : icImg(ic, 'log-ic')}<span class="${h.who === 'me' ? 'me' : 'who'}">${h.who === 'me' ? '你' : esc(a.name)}：</span>${esc(h.text)}</p>`).join(''); log.scrollTop = 1e6; };
     let busy = false;
     const speak = async msg => {
       if (busy) return; busy = true;

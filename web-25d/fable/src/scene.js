@@ -1396,7 +1396,7 @@ const World = (() => {
     const key = id || exitLabel;
     if (key !== hoverId) {
       setHighlight(hoverId, false); hoverId = key; setHighlight(id, true);
-      onHover && onHover(id ? interact[id].label : exitLabel);
+      onHover && onHover(id ? interact[id].label : exitLabel, id);
     }
     canvas.style.cursor = key ? 'pointer' : 'default';
   });

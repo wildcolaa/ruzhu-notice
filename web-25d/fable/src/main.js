@@ -256,7 +256,7 @@ function intro() {
 }
 
 // ---------- 启动 ----------
-World.onHover(label => { const p = $('prompt'); if (label) { p.textContent = label; p.classList.add('show'); } else p.classList.remove('show'); });
+World.onHover((label, id) => { const p = $('prompt'); if (label) { const ic = devIcon(id); p.innerHTML = (ic ? `<img class="pr-ic" alt="" src="${ic}">` : '') + esc(label); p.classList.toggle('has-ic', !!ic); p.classList.add('show'); } else p.classList.remove('show'); });
 World.onBlocked(room => toast(`${World.ROOMS[room].name}现在进不去`));
 World.onInteract(id => { if (modalOpen) return; const h = H[id]; if (h) h(); });
 World.start();
