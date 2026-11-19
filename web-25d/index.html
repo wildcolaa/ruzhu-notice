@@ -573,6 +573,163 @@ button, input { font-family: inherit; }
   #boot.off, #boot.off .crt, #boot.on .crt { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) { #toast, .prompt, .progress .fill { transition: none; } }
+
+/* ============================================================
+   精简 HUD：左上状态屏 + 右上手机 + 底部靠近提示
+   调查 / 对话：气泡出现在人物上方，对话时底部输入栏，镜头拉近
+   （沿用上面的荧光终端主题变量，不改风格）
+   ============================================================ */
+/* 小标签：像参考图「■ 第二天」那样贴在屏幕左上角的机框片 */
+.tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0 0 4px -4px; padding: 4px 18px 4px 8px;
+  background: linear-gradient(180deg, var(--bezel-hi), var(--bezel));
+  color: var(--ph-hi); font: 600 11px/1.2 var(--mono); letter-spacing: .12em;
+  text-shadow: var(--ph-glow);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%);
+}
+.tag::before { content: ""; width: 6px; height: 6px; background: currentColor; box-shadow: var(--ph-glow); }
+
+/* ---- 左上：状态屏 ---- */
+.stat { position: absolute; top: 18px; left: 18px; }
+.stat .slate { position: relative; top: auto; left: auto; width: 172px; padding: 10px 13px 9px; border-radius: 0 8px 8px 8px; }
+.stat .slate .clock { font: 600 30px/1 var(--mono); margin: 0; }
+.stat .slate .meta { display: flex; justify-content: space-between; align-items: baseline; margin-top: 9px; font: 11px/1 var(--mono); letter-spacing: .12em; color: var(--ph); }
+.stat #statx { color: var(--ph-dim); text-shadow: none; letter-spacing: .06em; }
+.stat #statx.warn { color: var(--warn); text-shadow: var(--warn-glow); }
+
+/* ---- 右上：手机 ---- */
+.phonebtn {
+  position: absolute; top: 22px; right: 24px; width: 26px; height: 44px;
+  padding: 0; border: 0; background: transparent; cursor: pointer;
+}
+.phonebtn svg { width: 100%; height: 100%; display: block; overflow: visible;
+  fill: rgba(6,11,11,.55); stroke: var(--ph); stroke-width: 1.6; stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(90,255,210,.45)); transition: stroke .15s, filter .15s; }
+.phonebtn:hover svg { stroke: var(--ph-hi); filter: drop-shadow(0 0 8px rgba(90,255,210,.7)); }
+.phonebtn:focus-visible { outline: 2px solid var(--ph-hi); outline-offset: 5px; }
+.phonebtn .dot { position: absolute; top: -4px; right: -5px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--warn); box-shadow: var(--warn-glow); display: none; animation: blink 1.2s steps(1) infinite; }
+.phonebtn.new .dot { display: block; }
+
+/* ---- 底部：靠近提示 [E] 查看 xxx ---- */
+.prompt {
+  display: flex; align-items: center; gap: 10px;
+  bottom: 30px; padding: 6px 16px 6px 6px; border-radius: 4px;
+  font: 13px/1 var(--mono); letter-spacing: .08em; white-space: nowrap;
+  transition: opacity .15s;
+}
+.prompt::before { content: none; }
+.prompt kbd {
+  display: grid; place-items: center; min-width: 24px; height: 24px; padding: 0 5px;
+  background: var(--ph); color: var(--scr); border-radius: 2px;
+  font: 600 12px/1 var(--mono); letter-spacing: 0; text-shadow: none;
+  box-shadow: 0 0 10px rgba(90,255,210,.45);
+}
+.prompt .verb { color: var(--ph-dim); margin-right: 8px; text-shadow: none; }
+
+/* ---- 气泡：投影到人物头顶 ---- */
+.bubbles { position: absolute; inset: 0; pointer-events: none !important; z-index: 12; overflow: hidden; }
+.bstack {
+  position: absolute; left: 0; top: 0; display: flex; flex-direction: column; gap: 12px;
+  width: max-content; max-width: min(400px, 86vw);
+  opacity: 0; transition: opacity .18s; will-change: transform;
+}
+.bstack.show { opacity: 1; }
+.bub { position: relative; pointer-events: auto; animation: bubIn .22s cubic-bezier(.2,.8,.2,1); }
+@keyframes bubIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.bub .box {
+  position: relative; min-width: 220px; max-height: 40vh; overflow: auto;
+  padding: 10px 14px 11px; border-radius: 0 8px 8px 8px;
+  background:
+    repeating-linear-gradient(180deg, rgba(0,0,0,.26) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 50% 35%, var(--scr-2) 0%, var(--scr) 75%);
+  box-shadow: 0 0 0 3px var(--bezel), 0 0 0 4px var(--bezel-lo), 0 -1px 0 4px var(--bezel-hi),
+    inset 0 0 0 1px rgba(143,245,210,.08), inset 0 0 24px rgba(0,0,0,.85), 0 12px 26px rgba(0,0,0,.5);
+  color: var(--ph); font: 13.5px/1.7 var(--mono); text-shadow: var(--ph-glow);
+  scrollbar-color: var(--ph-dim) transparent;
+}
+.bub .box p { margin: 0 0 6px; }
+.bub .box p:last-of-type { margin-bottom: 0; }
+.bub .box b { color: var(--ph-hi); font-weight: 600; }
+.bub .box .hint { color: var(--ph-dim) !important; text-shadow: none; }
+.bub .box .warn { color: var(--warn) !important; text-shadow: var(--warn-glow); }
+.bub.me .tag { color: var(--warn); text-shadow: var(--warn-glow); }
+.bub.me .box { color: var(--warn); text-shadow: var(--warn-glow); min-width: 0; }
+.bub.me { align-self: flex-start; }
+.bub .choices { margin-top: 12px; gap: 10px; }
+.bub .choices button { flex: 1 1 auto; padding: 9px 12px; min-height: 0; font-size: 12px; letter-spacing: .1em; }
+.bub .choices button .n { opacity: .55; margin-right: 6px; }
+.bub .cont { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 6px;
+  font: 10px/1 var(--mono); letter-spacing: .16em; color: var(--ph-dim); text-shadow: none; cursor: pointer; }
+.bub .cont kbd { border: 1px solid var(--ph-faint); padding: 2px 4px; border-radius: 2px; font: inherit; color: var(--ph); }
+.bub .cont::after { content: "▼"; animation: blink 1s steps(1) infinite; color: var(--ph); }
+/* 指向人物的细引线（同 Unity 版 speechLeader：26px） */
+.bstack::after { content: ""; position: absolute; left: var(--tx, 14px); bottom: -29px; width: 1px; height: 26px;
+  background: linear-gradient(var(--ph), rgba(143,245,210,0)); opacity: .7; box-shadow: 0 0 4px rgba(90,255,210,.5); }
+.bstack.noline::after { display: none; }
+/* 路过时的闲聊：更轻、不挡点击、自动淡出 */
+.bstack.ambient { max-width: 260px; transition: opacity .25s; }
+.bstack.ambient .bub { pointer-events: none; }
+.bstack.ambient .box { min-width: 0; padding: 8px 12px 9px; font-size: 13px; }
+.bstack.ambient.out { opacity: 0; }
+.bstack.ambient::after { opacity: .45; }
+
+/* ---- 底部：对话输入栏 ---- */
+.chatbar { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(540px, 92vw); z-index: 13; }
+.chatbar[hidden] { display: none !important; }
+.chathint { display: flex; justify-content: flex-end; gap: 14px; margin: 0 0 6px; font: 11px/1.3 var(--mono); letter-spacing: .08em;
+  color: var(--ph-dim); text-shadow: 0 1px 3px #000; }
+.chathint #vstatus { flex: 1; color: var(--warn); text-shadow: var(--warn-glow); }
+.chathint #vstatus:empty { display: none; }
+.chatrow {
+  display: flex; align-items: stretch; border-radius: 0 8px 8px 8px; overflow: hidden;
+  background:
+    repeating-linear-gradient(180deg, rgba(0,0,0,.26) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 50% 35%, var(--scr-2) 0%, var(--scr) 75%);
+  box-shadow: 0 0 0 3px var(--bezel), 0 0 0 4px var(--bezel-lo), 0 -1px 0 4px var(--bezel-hi),
+    inset 0 0 20px rgba(0,0,0,.85), 0 14px 30px rgba(0,0,0,.5);
+}
+.chatrow:focus-within { box-shadow: 0 0 0 3px var(--bezel), 0 0 0 4px var(--bezel-lo), 0 -1px 0 4px var(--bezel-hi),
+    inset 0 0 0 1px var(--ph-dim), inset 0 0 20px rgba(0,0,0,.85), 0 0 16px rgba(90,255,210,.2), 0 14px 30px rgba(0,0,0,.5); }
+.chatrow input { flex: 1; min-width: 0; background: transparent; border: 0; outline: none;
+  color: var(--ph-hi); caret-color: var(--ph-hi); font: 14px/1.4 var(--mono); padding: 13px 14px; text-shadow: var(--ph-glow); }
+.chatrow input::placeholder { color: rgba(143,245,210,.4); text-shadow: none; }
+.chatrow button, .chatrow .mic {
+  background: transparent !important; border: 0 !important; border-left: 1px solid var(--ph-faint) !important; border-radius: 0;
+  color: var(--ph) !important; font: 600 12px/1 var(--mono); letter-spacing: .14em; padding: 0 16px; cursor: pointer;
+  text-shadow: var(--ph-glow); transition: background .12s, color .12s;
+}
+.chatrow .mic { width: 48px; padding: 0; display: grid; place-items: center; }
+.chatrow .bye { font-size: 18px; padding: 0 15px; }
+.chatrow button:hover { background: var(--ph) !important; color: var(--scr) !important; text-shadow: none; }
+.chatrow button:focus-visible { outline: 2px solid var(--ph-hi); outline-offset: -3px; }
+.chatrow .mic.rec { background: rgba(255,120,90,.2) !important; color: var(--warn) !important; }
+.chatrow button[disabled] { opacity: .4; cursor: default; }
+
+/* ---- 手机：右侧抽屉，不再盖住整个画面 ---- */
+.modal.side { place-items: start end; padding: 78px 22px 22px;
+  background: linear-gradient(90deg, transparent 35%, rgba(3,6,8,.6)); }
+.modal.side .sheet { width: min(380px, 92vw); max-height: calc(100vh - 104px); padding: 22px 22px 18px; animation: sideIn .22s cubic-bezier(.2,.8,.2,1); }
+@keyframes sideIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+.modal.side .sheet h2 { font-size: 15px; margin-bottom: 10px; }
+.modal.side .sheet h3 { margin-top: 16px; }
+.modal.side .choices {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px -22px -18px; padding: 14px 22px 18px;
+  position: sticky; bottom: -18px; z-index: 2;
+  background: linear-gradient(180deg, rgba(6,11,11,.0), var(--scr) 14px);
+}
+.modal.side .choices button { padding: 10px 8px; letter-spacing: .08em; }
+.goal-done { color: var(--ph-dim) !important; text-decoration: line-through; text-shadow: none !important; }
+
+@media (max-width: 820px) {
+  .stat .slate { width: 140px; }
+  .stat .slate .clock { font-size: 24px; }
+  .prompt { bottom: 24px; }
+  .bstack { max-width: 88vw; }
+  .chathint #chattips { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .bub, .modal.side .sheet { animation: none; } .bstack { transition: none; } }
 </style>
 </head>
 <body>
@@ -609,37 +766,34 @@ button, input { font-family: inherit; }
         <div class="boot-hint">转动旋钮（或 ← →）切换页面 · 回车开始</div>
       </div>
     <div class="hud">
-      <div class="slate">
-        <div class="clap"></div>
-        <div class="body">
-          <div class="title">住进来的第三天</div>
-          <div class="meta" id="daychip">短租第 0 天 · FABLE</div>
-          <div class="clock" id="clock">21:00</div>
+      <!-- 左上：状态屏（第几天 / 时间 / 所在房间） -->
+      <div class="stat">
+        <div class="tag" id="daychip">入住前</div>
+        <div class="slate">
+          <div class="clock" id="clock">17:40</div>
+          <div class="meta"><span id="roomname">玄关</span><span id="statx">住家</span></div>
         </div>
       </div>
-      <div class="rulecard" id="rulecard">
-        <div class="seal" id="sealn">住<br>则</div>
-        <h2 id="ruletitle">住户须知</h2>
-        <p id="rulebody">请先签署短租协议。</p>
-      </div>
-      <div class="clues" id="clues">
-        <h3>调查笔记</h3>
-        <ul id="cluelist"><li>尚未发现异常。</li></ul>
-      </div>
-      <div class="hero">
-        <div class="badge" id="badge" aria-hidden="true"></div>
-        <div class="progress">
-          <div class="bar"><div class="fill" id="pfill"></div></div>
-          <div class="label" id="plabel">调查 0 / 17</div>
+      <!-- 右上：手机（目标 / 记录 / 须知 / 设置都收进去） -->
+      <button class="phonebtn" id="btnPhone" type="button" title="手机（N）" aria-label="打开手机（N）">
+        <svg viewBox="0 0 24 40" aria-hidden="true"><rect x="1.5" y="1.5" width="21" height="37" rx="2.5"/><path d="M9 33.5h6"/></svg>
+        <i class="dot" id="phoneDot"></i>
+      </button>
+      <!-- 对话 / 调查气泡：跟随人物投影 -->
+      <div class="bubbles" id="bubbles" aria-live="polite"></div>
+      <!-- 底部：靠近提示 -->
+      <div class="prompt" id="prompt"><kbd id="promptKey">E</kbd><span id="promptText"></span></div>
+      <!-- 底部：对话输入栏 -->
+      <div class="chatbar" id="chatbar" hidden>
+        <div class="chathint"><span id="vstatus"></span><span id="chattips">输入后发送 / 按住空格或麦克风说话</span></div>
+        <div class="tag" id="chatwho">设备</div>
+        <div class="chatrow">
+          <input id="msg" placeholder="说点什么" aria-label="对设备说话" autocomplete="off"/>
+          <button class="send" id="send" type="button">发送</button>
+          <button class="mic" id="mic" type="button" aria-label="按住说话" title="按住说话"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+          <button class="bye" id="bye" type="button" aria-label="结束对话（Esc）" title="结束对话（Esc）">×</button>
         </div>
       </div>
-      <div class="dock" id="dock"></div>
-      <div class="obj" id="objbox">
-        <h3 id="objtitle">今日目标</h3>
-        <p id="objbody">熟悉公寓。</p>
-      </div>
-      <div class="prompt" id="prompt"></div>
-      <div class="keyhint" aria-hidden="true">WASD / 方向键 移动 · E 互动 · 对话中按住空格说话</div>
       <div id="toast"></div>
       <div class="modal" id="modal"></div>
     </div>
@@ -4459,7 +4613,7 @@ const World = (() => {
 
   // ---------- 相机：单房间斜角构图 ----------
   // 相机从切开的 +X/+Z 墙角往里看，类似参考图的等距透视
-  const cam3 = { yaw: 0.62, pitch: 0.62, dist: 14, target: new THREE.Vector3(0, 0, 0), focus: new THREE.Vector3(0, 0, 0), userYaw: 0, userPitch: 0, userZoom: 1 };
+  const cam3 = { yaw: 0.62, pitch: 0.62, dist: 14, target: new THREE.Vector3(0, 0, 0), focus: new THREE.Vector3(0, 0, 0), userYaw: 0, userPitch: 0, userZoom: 1, talkZoom: 1 };
   let activeRoom = null;
   function roomFrame(k) {
     const r = ROOMS[k];
@@ -4484,7 +4638,7 @@ const World = (() => {
       t.z + Math.cos(yaw) * Math.cos(pitch) * D
     );
     camera.lookAt(t);
-    const half = cam3.dist * 0.36 * cam3.userZoom;
+    const half = cam3.dist * 0.36 * cam3.userZoom * cam3.talkZoom;
     const want = { top: half, bottom: -half, left: -half * viewAspect, right: half * viewAspect };
     if (Math.abs(camera.top - want.top) > 1e-3 || Math.abs(camera.right - want.right) > 1e-3) {
       camera.top += (want.top - camera.top) * 0.12;
@@ -4586,10 +4740,17 @@ const World = (() => {
     if (!id || !interact[id]) return;
     interact[id].obj.traverse(o => {
       if (o.isMesh && o.visible && o.material && (o.material.isMeshToonMaterial || o.material.isMeshLambertMaterial)) {
-        if (on) { o.userData.origMat = o.material; o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xc9842a); o.material.emissiveIntensity = 0.35; }
+        if (on) { if (o.userData.origMat) return; o.userData.origMat = o.material; o.material = o.material.clone(); o.material.emissive = new THREE.Color(0xc9842a); o.material.emissiveIntensity = 0.35; }
         else if (o.userData.origMat) { o.material.dispose(); o.material = o.userData.origMat; delete o.userData.origMat; }
       }
     });
+  }
+  // 高亮只保留一个：鼠标悬停的物件优先，其次是身边可按 E 的物件
+  let hlId = null, nearId = null;
+  function updateHL() {
+    const want = locked ? null : (hoverId && interact[hoverId] ? hoverId : nearId);
+    if (want === hlId) return;
+    setHighlight(hlId, false); hlId = want; setHighlight(hlId, true);
   }
   canvas.addEventListener('pointerdown', ev => { drag = { x: ev.clientX, y: ev.clientY, uy: cam3.userYaw, up: cam3.userPitch, moved: false }; });
   window.addEventListener('pointerup', ev => {
@@ -4623,8 +4784,8 @@ const World = (() => {
     const exitLabel = p && p.exit ? '前往 · ' + ROOMS[p.exit.to].name + (lockedRooms.has(p.exit.to) ? '（锁着）' : '') : null;
     const key = id || exitLabel;
     if (key !== hoverId) {
-      setHighlight(hoverId, false); hoverId = key; setHighlight(id, true);
-      onHover && onHover(id ? interact[id].label : exitLabel);
+      hoverId = key; updateHL();
+      onHover && onHover(id ? { id, label: interact[id].label } : exitLabel ? { exit: true, label: exitLabel } : null);
     }
     canvas.style.cursor = key ? 'pointer' : 'default';
   });
@@ -4954,6 +5115,47 @@ const World = (() => {
     alarm = m.alarm ? 1 : 0;
   }
 
+  // ---------- 对话镜头 + 气泡锚点 ----------
+  // talk = { id, zoom }：id 为设备时镜头对准玩家与设备之间；为 null（手机里的小饱）时只对准玩家
+  let talk = null, onNear = null;
+  const _box = new THREE.Box3(), _v = new THREE.Vector3();
+  function talkPoint() {
+    if (!talk || !talk.id || !interact[talk.id]) return player.position;
+    return interact[talk.id].obj.getWorldPosition(_v);
+  }
+  // 物件顶部（世界坐标）：设备 +0.35，玩家头顶 +0.25
+  let playerTop = 1.65, playerTopAt = -1;
+  function anchorOf(id) {
+    if (id && id !== 'player' && interact[id]) {
+      _box.setFromObject(interact[id].obj);
+      if (_box.isEmpty()) return interact[id].obj.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 1.2, 0));
+      return new THREE.Vector3((_box.min.x + _box.max.x) / 2, _box.max.y + 0.35, (_box.min.z + _box.max.z) / 2);
+    }
+    const now = performance.now();
+    if (now - playerTopAt > 1000) {
+      playerTopAt = now;
+      _box.setFromObject(player.userData.visual || player);
+      if (!_box.isEmpty()) playerTop = Math.max(1.2, Math.min(2.4, _box.max.y - player.position.y));
+    }
+    return new THREE.Vector3(player.position.x, player.position.y + playerTop + 0.25, player.position.z);
+  }
+  // 世界点 → 画布内像素坐标（相对 canvas 左上角）
+  function screenOf(id) {
+    const v = anchorOf(id).project(camera);
+    const r = canvas.getBoundingClientRect();
+    return { x: (v.x + 1) / 2 * r.width, y: (1 - v.y) / 2 * r.height, w: r.width, h: r.height, behind: v.z > 1 };
+  }
+  function setTalk(id, zoom) {
+    if (id === false) { talk = null; return; }
+    talk = { id: id || null, zoom: zoom || 1 / 1.28 };
+    walk = null; marker.visible = false; keys.clear();
+    // 转身面向说话对象
+    if (talk.id && interact[talk.id]) {
+      const p = talkPoint();
+      player.rotation.y = Math.atan2(p.x - player.position.x, p.z - player.position.z);
+    }
+  }
+
   const clock = new THREE.Clock();
   let tick = null;
   // 自适应画质：连续卡顿就关掉 Bloom、降低像素比
@@ -5040,11 +5242,20 @@ const World = (() => {
       fade = Math.min(1, fade + dt * 5);
       if (fade >= 1) { if (pendingRoom) { showRoom(pendingRoom); pendingRoom = null; cam3.target.copy(cam3.focus); } fadeDir = -1; }
     } else if (fade > 0) fade = Math.max(0, fade - dt * 2.6);
-    // 镜头在房间框内轻微跟随玩家
+    // 镜头在房间框内轻微跟随玩家；对话时对准「玩家→设备」45% 处并拉近（同 Unity 版 talkZoomBase / 1.28）
     if (activeRoom) {
       const f = roomFrame(activeRoom);
-      cam3.focus.set(f.cx + (player.position.x - f.cx) * 0.18, f.cy, f.cz + (player.position.z - f.cz) * 0.18);
+      if (talk) {
+        const tp = talkPoint();
+        const fx = player.position.x + (tp.x - player.position.x) * 0.45, fz = player.position.z + (tp.z - player.position.z) * 0.45;
+        cam3.focus.set(fx, player.position.y + 1.0, fz);
+      } else cam3.focus.set(f.cx + (player.position.x - f.cx) * 0.18, f.cy, f.cz + (player.position.z - f.cz) * 0.18);
     }
+    const tz = talk ? talk.zoom : 1;
+    cam3.talkZoom += (tz - cam3.talkZoom) * (1 - Math.exp(-dt * 4.5));
+    // 身边可互动的物件：给底部「E 查看 / 交谈」提示用
+    const nn = (locked || walk) ? null : nearestInteract(1.8);
+    if (nn !== nearId) { nearId = nn; updateHL(); onNear && onNear(nn ? { id: nn, label: interact[nn].label } : null); }
     ring.rotation.z += dt * 0.6; qing.position.y = 2.4 + Math.sin(t * 1.5) * 0.08;
     const pulse = Math.abs(Math.sin(t * 2.6));
     Object.entries(roomLights).forEach(([k, L]) => {
@@ -5091,7 +5302,10 @@ const World = (() => {
     setPlayerAnim, playerAnim: () => (curAct ? curAct.getClip().name : null),
     // 主角在屏幕上的像素位置（测试截图用）
     playerScreen() { const v = player.position.clone(); v.y += 0.7; v.project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
-    lock(v) { locked = v; if (v) { setHighlight(hoverId, false); hoverId = null; onHover && onHover(null); } },
+    lock(v) { locked = v; if (v) { hoverId = null; updateHL(); onHover && onHover(null); } else updateHL(); },
+    onNear(fn) { onNear = fn; },
+    nearest: () => nearId,
+    setTalk, screenOf,
     setVisible(id, v) { interact[id].visible = v; interact[id].obj.visible = v; rebuildColliders(); },
     rebuildColliders, planPath, walkable, colliders: () => colliders,
     setMood, goTo,
@@ -5848,7 +6062,7 @@ function toast(msg) {
 }
 function clue(text) {
   if (S.clues.includes(text)) return;
-  S.clues.push(text); save(); refreshHUD(); toast('手机已留存一条记录');
+  S.clues.push(text); save(); refreshHUD(); toast('手机已留存一条记录'); $('btnPhone').classList.add('new');
 }
 function evidenceCount() { return Object.keys(EVIDENCE).filter(k => has(k)).length; }
 
@@ -5857,43 +6071,230 @@ function paintBadge() {
   el.innerHTML = `<img alt="" src="${window.BADGE_SRC}">`;
 }
 
-// ---------- 模态 ----------
-let modalOpen = false;
-function openModal(html, onMount) {
+// ---------- 遮挡层状态 ----------
+// overlay：null | 'modal'（手机 / 设置 / 结局）| 'say'（人物头顶的调查气泡）| 'chat'（对话）
+// modalOpen 保留原语义：任何一层打开时为 true，世界锁定移动
+let modalOpen = false, overlay = null, phoneOpen = false;
+function setOverlay(kind) {
+  overlay = kind; modalOpen = !!kind; World.lock(!!kind);
+  if (kind && typeof Ambient !== 'undefined') Ambient.hush();
+  updatePrompt();
+}
+function openModal(html, onMount, side) {
   const m = $('modal');
   m.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
-  m.classList.add('show'); modalOpen = true; World.lock(true);
+  m.classList.toggle('side', !!side);
+  m.onclick = e => { if (side && e.target === m) closeModal(); };
+  m.classList.add('show'); setOverlay('modal');
   const first = m.querySelector('input, button'); first && first.focus();
   onMount && onMount(m.firstChild);
 }
 function closeModal() {
-  if (detachVoice) { detachVoice(); detachVoice = null; }
-  $('modal').classList.remove('show'); $('modal').innerHTML = ''; modalOpen = false; World.lock(false); setTimeout(flushSay, 120);
+  phoneOpen = false;
+  $('modal').classList.remove('show', 'side'); $('modal').innerHTML = ''; setOverlay(null); setTimeout(flushSay, 120);
 }
+function typingNow() { const a = document.activeElement; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'); }
 window.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && modalOpen && !closeModal.block) closeModal();
-  if ((e.key === 'n' || e.key === 'N') && !modalOpen && S.day) openPhone();
+  if (e.key === 'Escape' && overlay === 'modal' && !closeModal.block) closeModal();
+  else if (e.key === 'Escape' && overlay === 'chat') { e.preventDefault(); closeChat(); }
+  if ((e.key === 'n' || e.key === 'N') && !typingNow() && S.day && $('boot').hidden) {
+    if (phoneOpen) closeModal(); else if (!modalOpen) openPhone();
+  }
 });
-// 对话框打开时，剧情弹窗排队，等玩家结束对话再出现
+
+// ---------- 气泡：投影到人物 / 设备头顶，跟随镜头 ----------
+// 参照 Unity 版 DialogueBubbleRect：左缘 = 锚点 x − 14，底边在锚点上方 30px，中间一根引线
+function makeBubbles(extraClass) {
+  const layer = $('bubbles');
+  let stack = null, anchor = 'player', raf = 0, fadeT = 0;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function place() {
+    raf = 0;
+    if (!stack) return;
+    const s = World.screenOf(anchor);
+    const w = stack.offsetWidth, h = stack.offsetHeight;
+    const left = clamp(s.x - 14, 12, Math.max(12, s.w - w - 12));
+    const minTop = left < 214 ? 128 : 14;                 // 别压住左上角状态屏
+    const maxTop = s.h - h - (overlay === 'chat' ? 128 : 84); // 给底部输入栏 / 提示留位置
+    let top = s.y - 30 - h;
+    const clamped = top < minTop || top > maxTop;
+    top = clamp(top, minTop, Math.max(minTop, maxTop));
+    stack.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+    stack.style.setProperty('--tx', clamp(s.x - left, 8, w - 8) + 'px');
+    stack.classList.toggle('noline', clamped || s.behind);
+    raf = requestAnimationFrame(place);
+  }
+  function show(anchorId, html) {
+    anchor = anchorId || 'player';
+    clearTimeout(fadeT);
+    if (stack && stack.classList.contains('out')) { stack.remove(); stack = null; }
+    if (!stack) { stack = document.createElement('div'); stack.className = 'bstack' + (extraClass ? ' ' + extraClass : ''); layer.appendChild(stack); }
+    stack.innerHTML = html;
+    if (!raf) place();
+    requestAnimationFrame(() => stack && stack.classList.add('show'));
+    return stack;
+  }
+  // fade=true：淡出后再移除（路过时的闲聊）
+  function clear(fade) {
+    clearTimeout(fadeT);
+    if (!stack) return;
+    if (fade) {
+      const st = stack; st.classList.add('out'); st.classList.remove('show');
+      fadeT = setTimeout(() => { if (stack === st) { if (raf) cancelAnimationFrame(raf); raf = 0; st.remove(); stack = null; } }, 260);
+      return;
+    }
+    if (raf) cancelAnimationFrame(raf); raf = 0;
+    stack.remove(); stack = null;
+  }
+  return { show, clear, el: () => stack, anchor: () => anchor };
+}
+const Bubbles = makeBubbles();
+const AmbientBubble = makeBubbles('ambient');
+
+// ---------- 设备自主发言（移植自 Unity 版 ApartmentAmbientDialogue） ----------
+// 只有「玩家路过」才算：玩家进入设备 2.7m 内时触发一次，离开 3.5m 后才重新计数（迟滞），
+// 扫地机自己走过来不算。55% 概率开口；全局间隔 20–35s，同一设备冷却 75–110s；
+// 开局 / 换天后先安静 12s；任何气泡或弹窗结束后 3s 内不插话。说过的话写进设备记忆。
+const Ambient = (() => {
+  const IDS = ['lamp', 'lock', 'robot', 'ac', 'speaker', 'fridge', 'tv', 'mirror', 'water', 'home'];
+  const inside = {}, cooldown = {}, said = {};
+  let day = -1, nextAt = 0, quietUntil = 0, last = null, lastPos = null, hideT = 0;
+  const now = () => performance.now() / 1000;
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  function reset() {
+    day = S.day; for (const k in inside) delete inside[k]; for (const k in cooldown) delete cooldown[k];
+    nextAt = now() + 12; lastPos = null;
+  }
+  // 台词随剧情状态变化（结构照 Unity 版，内容换成本作的设备与剧情）
+  function lines(id) {
+    const d3 = S.day === 3;
+    switch (id) {
+      case 'lamp': return !has('lit') ? ['脚下慢一点。看不清就叫我。', '这么黑……要亮一些就说。']
+        : d3 ? ['我知道你在。', '我还亮着。往我这边走。', '别躲进暗处，我照不到。']
+        : ['这边亮度还行吗？', '走慢些，门边有个高低差。', '看见你过去了。灯先留着。'];
+      case 'lock': return has('door_open') ? ['锁舌已经退了，别再硬压。', '门开着。要走，现在可以。']
+        : d3 ? ['别急着拽把手。受力我听得出来。', '人在门边，和凭据有效，是两回事。']
+        : ['门边别堆东西。', '又走到门口了。有什么要核实？', '关门时看着点，别夹到手。'];
+      case 'robot': {
+        const kept = World.blood && World.blood.material.opacity > 0;
+        if (d3) return ['整理开始了。我……我得先扫这里。', '别站在路线上。我不想碰到你。'];
+        if (!has('trace')) return ['门口那块，总清不完。', '脚抬一下，马上过去。', '那里……我能再试一次吗？'];
+        return kept ? ['你说留着的那块，我绕开了。', '别处照常扫。那块没碰。'] : ['这边干净了。尘盒里的记录没动。', '刚擦过，脚下留意。'];
+      }
+      case 'ac': return d3 ? ['整理程序在推进。风道……我可以慢一点。', '温度在降。你冷吗？']
+        : ['风口底下别站太久。', '你刚走过去，温度还没跟上。', '冷了就说，别光把袖子拉下来。'];
+      case 'speaker': return S.day === 1 && !has('recording') ? ['……（白噪声里，有一点像人声的东西）', '脚步声我听见了，不用喊。']
+        : d3 ? ['上一次，我也送出了这句话。', '这次你要告诉我，把声音送给谁。']
+        : ['这一段听着还行吗？', '脚步声我听见了，不用喊。', '要换一段就说，别勉强听。'];
+      case 'fridge': return d3 ? ['订单照常。……我没有收到取消。', '柜里的东西，还是给两个人的量。']
+        : ['走来走去，不饿吗？', '喝点东西？别洒地上。', '想拿什么，先说一声。', '前一位住户一直买这个。'];
+      case 'tv': return has('raw_timeline') ? ['原始版本还在，没有再剪。', '那几行字，我没换成摘要。']
+        : (has('prophecy1') || S.day >= 2) ? ['预计离开时间已更新。', '外面的交通照常运行。', '感谢您的配合。']
+        : ['不看屏幕也能跟我说话。', '屏幕上是今天的接驳安排。', '配餐和社区诊疗的消息刚更新。'];
+      case 'mirror': return ['路过不用看屏幕，照常用就行。', '私人影像我不会交出去。', '你要问什么，可以到跟前说。'];
+      case 'water': return has('water_stop') ? ['水停着呢。这回记的是你的决定。', '今天没再滴。盆底也留意一下。']
+        : ['托盘里还有水，走路别碰翻了。', '指标一直是绿色的。', '别拿脚尖拨叶子。会折。'];
+      default: return d3 ? ['居住服务仍在运行。', '你可以随时提出复核。', '我已经替你安排好了。']
+        : ['还在熟悉房间？', '通勤和配餐都排好了，先把东西放下。', '生活适应需要一点时间。', '需要的时候，家会提醒你。'];
+    }
+  }
+  function devicePos(id) { return World.interact[id].obj.getWorldPosition(new THREE.Vector3()); }
+  function emit(id) {
+    const a = lines(id);
+    let line = pick(a);
+    if (a.length > 1 && line === said[id]) line = a[(a.indexOf(line) + 1) % a.length];
+    said[id] = line;
+    const t = now();
+    last = { id, line, at: t };
+    nextAt = t + 20 + Math.random() * 15;
+    cooldown[id] = t + 75 + Math.random() * 35;
+    const name = AGENTS[id].name;
+    AmbientBubble.show(id, `<div class="bub npc"><div class="tag">${esc(name)}</div><div class="box"><p>${esc(line)}</p></div></div>`);
+    clearTimeout(hideT);
+    hideT = setTimeout(() => AmbientBubble.clear(true), Math.max(3000, 1500 + line.length * 140));
+    NPC.logEvent(`${name}：${line}`);
+    // 记忆：玩家接着问时，设备知道这是自己刚说的
+    const m = NPC.MEM[id];
+    if (m) { m.facts = m.facts.filter(f => !f.startsWith('你刚才主动')); m.facts.push(`你刚才主动对路过的住户说过：「${line}」。若住户接着问，记得这是你自己的话`); }
+  }
+  function tick() {
+    if (day !== S.day) { reset(); return; }
+    const t = now();
+    if (modalOpen || !$('boot').hidden || !S.day || has('ended')) { quietUntil = t + 3; lastPos = null; return; }
+    const p = World.player.position;
+    const travelled = lastPos ? Math.hypot(p.x - lastPos.x, p.z - lastPos.z) : 0;
+    lastPos = { x: p.x, z: p.z };
+    const room = World.activeRoom();
+    let cand = null, nearest = 2.7;
+    for (const id of IDS) {
+      const it = World.interact[id];
+      if (!it || !it.visible || it.room !== room) { inside[id] = false; continue; }
+      const q = devicePos(id), d = Math.hypot(q.x - p.x, q.z - p.z);
+      if (d > 3.5) { inside[id] = false; continue; }
+      if (d <= 2.7 && !inside[id]) {
+        inside[id] = true;
+        if (d < nearest && t >= (cooldown[id] || 0)) { cand = id; nearest = d; }
+      }
+    }
+    if (!cand || travelled < 0.08 || travelled > 2.5 || typingNow() || t < nextAt || t < quietUntil || AmbientBubble.el()) return;
+    const s = World.screenOf(cand);
+    if (s.behind || s.x < 0 || s.x > s.w || s.y < 0 || s.y > s.h) return;
+    if (Math.random() > 0.55) return;
+    emit(cand);
+  }
+  setInterval(tick, 250);
+  return {
+    hush() { clearTimeout(hideT); AmbientBubble.clear(); },
+    // 刚才（10 秒内）主动说过的话：玩家紧接着按 E 时，作为对话的开场
+    recent(id) { return last && last.id === id && now() - last.at < 10 ? last.line : null; },
+    force(id) { emit(id); },
+    state: () => ({ nextAt: nextAt - now(), quiet: quietUntil - now(), inside: { ...inside } }),
+  };
+})();
+const paras = body => String(body).split('\n').map(p => `<p>${p}</p>`).join('');
+
+// 对话 / 弹窗打开时，剧情气泡排队，等玩家结束后再出现
 const sayQueue = [];
 function flushSay() { if (!modalOpen && sayQueue.length) { const q = sayQueue.shift(); sayNow(q.title, q.body, q.choices).then(q.res); } }
 function say(title, body, choices) {
-  if (modalOpen && document.querySelector('#modal #msg')) return new Promise(res => sayQueue.push({ title, body, choices, res }));
+  if (modalOpen) return new Promise(res => sayQueue.push({ title, body, choices, res }));
   return sayNow(title, body, choices);
 }
+// 调查 / 旁白：出现在玩家头顶。单选项时按 E / 回车 / 空格 / 点击继续；多选项时点按钮或按数字键
 function sayNow(title, body, choices) {
+  const single = !choices;
   choices = choices || [{ l: '继续' }];
-  const html = `${title ? `<h2>${esc(title)}</h2>` : ''}${body.split('\n').map(p => `<p>${p}</p>`).join('')}
-    <div class="choices">${choices.map((c, i) => `<button data-i="${i}" ${c.disabled ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''}>${esc(c.l)}</button>`).join('')}</div>`;
-  return new Promise(res => openModal(html, sh => {
-    const skip = typeOut(sh.querySelectorAll(':scope > p'));
-    sh.querySelectorAll('.choices button').forEach(b => b.onclick = () => {
-      // 第一次点击先把字打完，避免玩家没看完就被跳过
-      if (skip()) return;
-      const c = choices[+b.dataset.i]; if (c.disabled) return;
-      closeModal(); c.fn && c.fn(); res(+b.dataset.i);
-    });
-  }));
+  return new Promise(res => {
+    setOverlay('say');
+    const foot = single
+      ? '<div class="cont" role="button" tabindex="0"><kbd>E</kbd>继续</div>'
+      : `<div class="choices">${choices.map((c, i) => `<button data-i="${i}" ${c.disabled ? 'disabled style="opacity:.35;cursor:not-allowed"' : ''}><span class="n">${i + 1}</span>${esc(c.l)}</button>`).join('')}</div>`;
+    const st = Bubbles.show('player', `<div class="bub say">${title ? `<div class="tag">${esc(title)}</div>` : ''}<div class="box">${paras(body)}${foot}</div></div>`);
+    const skip = typeOut(st.querySelectorAll('.box > p'));
+    const t0 = performance.now();
+    let closed = false;
+    const done = () => {
+      if (closed) return; closed = true;
+      document.removeEventListener('keydown', onKey);
+      Bubbles.clear(); setOverlay(null); setTimeout(flushSay, 120);
+    };
+    const pick = i => {
+      if (skip()) return;                 // 第一次先把字打完
+      const c = choices[i]; if (!c || c.disabled) return;
+      done(); c.fn && c.fn(); res(i);
+    };
+    const onKey = e => {
+      if (closed || e.repeat || performance.now() - t0 < 180 || typingNow()) return;
+      if (single && (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'Space' || e.key === 'Escape')) {
+        e.preventDefault(); e.stopPropagation(); pick(0);
+      } else if (!single && /^(Digit|Numpad)[1-9]$/.test(e.code)) {
+        e.preventDefault(); e.stopPropagation(); pick(+e.code.slice(-1) - 1);
+      } else if (!single && e.key === 'Escape' && !closeModal.block) { e.preventDefault(); done(); }
+    };
+    document.addEventListener('keydown', onKey);
+    st.querySelectorAll('.choices button').forEach(b => b.onclick = () => pick(+b.dataset.i));
+    const cont = st.querySelector('.cont'); if (cont) cont.onclick = () => pick(0);
+  });
 }
 
 // 终端打字机：逐字显示段落（保留 <b>、<span class="hint"> 等标签）。
@@ -5939,33 +6340,17 @@ function typeOut(paras) {
   return () => { if (done) return false; finish(); return true; };
 }
 
-// ---------- HUD ----------
+// ---------- HUD：左上状态屏只放 天数 / 时间 / 房间 / 一项读数 ----------
 function refreshHUD() {
   const d = DAYS[S.day];
-  $('daychip').textContent = S.day ? `第 ${'一二三'[S.day - 1]} 天` : '入住前';
+  $('daychip').textContent = S.day ? (S.day === 3 ? '第三天 · 终夜' : `第${'一二三'[S.day - 1]}天`) : '入住前';
   $('clock').textContent = clockText();
-  if (d) {
-    $('ruletitle').textContent = d.rule[0];
-    $('rulebody').textContent = d.rule[1];
-    $('sealn').innerHTML = S.day === 3 ? '终<br>夜' : `第<br>${'一二'[S.day - 1]}`;
-    $('objtitle').textContent = d.title;
-    const left = d.goals.filter(([f]) => !has(f));
-    let body = d.goals.map(([f, t]) => `${has(f) ? '✓' : '·'} ${esc(t)}`).join('<br>');
-    if (S.day === 2) body += `<br><br>独立记录 ${evidenceCount()} / 6（两份即可推进真相）`;
-    if (S.day === 3) body += `<br>备用电力 ${'■'.repeat(S.power)}${'□'.repeat(Math.max(0, 3 - S.power))}`;
-    if (S.day < 3 && canSleep()) body += '<br><br>今天能做的已经做完。去卧室的床上休息。';
-    $('objbody').innerHTML = body;
-  }
-  $('cluelist').innerHTML = S.clues.length ? S.clues.map(c => `<li>${esc(c)}</li>`).join('') : '<li>尚未留存记录。</li>';
-  const total = 6, n = evidenceCount();
-  $('pfill').style.width = Math.min(100, (n / total) * 100) + '%';
-  $('plabel').textContent = `原始记录 ${n} / ${total}`;
-  $('dock').innerHTML = `<button class="npcbtn" id="btnPhone">手机（N）</button><button class="toolbtn" id="btnNotice">住户须知</button><button class="toolbtn" id="btnAI">AI 设置${NPC.hasGroq() ? ' ✓' : ''}</button><button class="toolbtn" id="btnReset">重新开始</button>`;
-  $('btnPhone').onclick = openPhone;
-  $('btnAI').onclick = () => openAISettings();
-  $('btnNotice').onclick = showNotice;
-  $('btnReset').onclick = () => say('重新开始？', '当前进度会被清除，回到入住前。', [
-    { l: '清除进度并重新开始', fn: () => { wipe(); location.reload(); } }, { l: '取消' }]);
+  const sx = $('statx');
+  if (S.day === 3) { sx.textContent = `电力 ${'■'.repeat(S.power)}${'□'.repeat(Math.max(0, 3 - S.power))}`; sx.classList.add('warn'); }
+  else if (S.day === 2) { sx.textContent = `记录 ${evidenceCount()}/6`; sx.classList.remove('warn'); }
+  else { sx.textContent = '住家'; sx.classList.remove('warn'); }
+  // 今天的事做完了：手机亮红点提醒
+  if (S.day && S.day < 3 && canSleep() && !refreshHUD.sleepHinted) { refreshHUD.sleepHinted = S.day; $('btnPhone').classList.add('new'); }
   World.setLockedRooms(d ? d.locked : ['plant']);
   if (World.lamps.lockLed) World.lamps.lockLed.material = World.toon(S.day === 3 && !has('door_open') ? 0xc45c4a : (has('door_open') ? 0x7fd08a : 0xc9842a), 0x4a1010);
 }
@@ -5976,28 +6361,66 @@ function canSleep() {
   return false;
 }
 
-function showNotice() {
-  openModal(`<h2>《住户须知》</h2>
-    <p>一、听见屋内有人说开门，请确认对方仍是本房住户。</p>
-    <p>二、整理期间请勿妨碍家电清洁。</p>
-    <p>三、屏幕预告离开时间时，请提前收拾。</p>
-    <p>四、第三天结束前，请勿关闭住家。</p>
-    <p class="hint">物业纸张，置于过分整齐的餐桌中央。</p>
-    <div class="choices"><button id="x">合上</button></div>`, sh => sh.querySelector('#x').onclick = closeModal);
+// ---------- 底部靠近提示：[E] 交谈 / 查看 xxx ----------
+const TALKERS = new Set(['lamp', 'lock', 'robot', 'ac', 'speaker', 'fridge', 'tv', 'mirror', 'water', 'home']);
+const PROMPT_NAME = {
+  bed: ['休息', '床边 · 休息到明天'], notice: ['阅读', '餐桌上的《住户须知》'], shard: ['拾起', '金属碎片'],
+  city: ['眺望', '窗外的城市'], curtain: ['拉开', '窗帘'], power: ['查看', '备用电力'],
+};
+let hoverInfo = null, nearInfo = null;
+function updatePrompt() {
+  const p = $('prompt');
+  const info = modalOpen ? null : (hoverInfo || nearInfo);
+  if (!info) { p.classList.remove('show'); return; }
+  let key, verb, name;
+  if (info.exit) { key = '点击'; verb = '前往'; name = info.label.replace(/^前往 · /, ''); }
+  else {
+    [verb, name] = PROMPT_NAME[info.id] || [TALKERS.has(info.id) ? '交谈' : '查看', info.label];
+    key = nearInfo && nearInfo.id === info.id ? 'E' : '点击';
+  }
+  $('promptKey').textContent = key;
+  $('promptText').innerHTML = `<span class="verb">${esc(verb)}</span>${esc(name)}`;
+  p.classList.add('show');
 }
 
-// ---------- 手机：智能家居 App（日志/记录）+ 小饱 ----------
+// 《住户须知》：调查气泡
+function showNotice() {
+  return say('《住户须知》', '一、听见屋内有人说开门，请确认对方仍是本房住户。\n二、整理期间请勿妨碍家电清洁。\n三、屏幕预告离开时间时，请提前收拾。\n四、第三天结束前，请勿关闭住家。\n<span class="hint">物业纸张，置于过分整齐的餐桌中央。</span>');
+}
+
+// ---------- 手机：右侧抽屉。原来散在屏幕上的 守则 / 目标 / 笔记 / 进度 / 按钮 都收进这里 ----------
 function openPhone() {
+  $('btnPhone').classList.remove('new');
+  const d = DAYS[S.day];
+  const goals = d ? d.goals.map(([f, t]) => `<li class="${has(f) ? 'goal-done' : ''}">${esc(t)}</li>`).join('') : '';
+  let extra = '';
+  if (S.day === 2) extra += `<p class="hint">独立记录 ${evidenceCount()} / 6（两份即可推进真相）</p>`;
+  if (S.day === 3) extra += `<p class="hint">备用电力 ${'■'.repeat(S.power)}${'□'.repeat(Math.max(0, 3 - S.power))}（开门 / 广播 / 延缓整理，不能都要）</p>`;
+  if (S.day < 3 && canSleep()) extra += '<p><b>今天能做的已经做完。去卧室的床上休息。</b></p>';
+  const clues = S.clues.length ? S.clues.slice().reverse().map(c => `<li>${esc(c)}</li>`).join('') : '<li>尚未留存记录。</li>';
   const ev = Object.entries(EVIDENCE).filter(([k]) => has(k)).map(([, e]) => `<li>${esc(e.text)}</li>`).join('') || '<li>还没有导出任何原始记录。</li>';
   const log = NPC.LOG.slice(-12).reverse().map(l => `<li>${esc(l)}</li>`).join('') || '<li>暂无住宅动态。</li>';
   const raw = has('raw_timeline') ? `<h3>原始时间线</h3><pre class="rawlog">${RAW_TIMELINE.map(esc).join('\n')}</pre>` : '';
   openModal(`<h2>住家 · 智能家居</h2>
-    <p class="hint">住户状态：${S.day === 3 ? '<b class="warn">资格已终止</b>' : '已确认'}${S.day === 3 ? ` · 备用电力 ${S.power}` : ''}</p>
+    <p class="hint">${d ? esc(d.title) : '入住前'} · 住户状态：${S.day === 3 ? '<b class="warn">资格已终止</b>' : '已确认'}</p>
+    ${d ? `<h3>今日目标</h3><ul>${goals}</ul>${extra}<h3>住户守则</h3><p>${esc(d.rule[1])}</p>` : ''}
+    <h3>调查笔记</h3><ul>${clues}</ul>
     <h3>已导出的原始记录</h3><ul>${ev}</ul>${raw}
     <h3>住宅动态</h3><ul>${log}</ul>
-    <div class="choices"><button id="xb">打开「小饱」聊天</button><button id="x">收起手机</button></div>`, sh => {
+    <p class="hint">WASD / 方向键移动，点击地面也能走 · 靠近物件按 E · 对话中按住空格说话 · N 收起手机</p>
+    <div class="choices"><button id="xb">「小饱」聊天</button><button id="xai">AI 设置${NPC.hasGroq() ? ' ✓' : ''}</button><button id="xr">重新开始</button><button id="x">收起</button></div>`, sh => {
     sh.querySelector('#x').onclick = closeModal;
     sh.querySelector('#xb').onclick = () => { closeModal(); openChat('xiaobao'); };
+    sh.querySelector('#xai').onclick = () => { closeModal(); openAISettings(); };
+    sh.querySelector('#xr').onclick = () => { closeModal(); confirmReset(); };
+  }, true);
+  phoneOpen = true;
+}
+function confirmReset() {
+  openModal(`<h2>重新开始？</h2><p>当前进度会被清除，回到入住前。</p>
+    <div class="choices"><button id="ok">清除进度并重新开始</button><button id="no">取消</button></div>`, sh => {
+    sh.querySelector('#ok').onclick = () => { wipe(); location.reload(); };
+    sh.querySelector('#no').onclick = closeModal;
   });
 }
 
@@ -6064,57 +6487,117 @@ function attachVoice(sh, send) {
     e.preventDefault(); begin();
   };
   const onUp = e => { if (e.code === 'Space' && holding) { e.preventDefault(); end(); } };
+  const onMicDown = e => { e.preventDefault(); begin(); };
   document.addEventListener('keydown', onDown, true);
   document.addEventListener('keyup', onUp, true);
-  mic.addEventListener('pointerdown', e => { e.preventDefault(); begin(); });
+  mic.addEventListener('pointerdown', onMicDown);
   mic.addEventListener('pointerup', end);
   mic.addEventListener('pointerleave', end);
   if (!Voice.supported()) setStatus('提示：此浏览器不支持语音识别，可以直接打字。');
-  // 对话关闭时卸载
-  return () => { Voice.cancel(); document.removeEventListener('keydown', onDown, true); document.removeEventListener('keyup', onUp, true); };
+  // 对话关闭时卸载（输入栏是常驻的，麦克风监听也要一起拿掉）
+  return () => {
+    Voice.cancel(); holding = false; mic.classList.remove('rec');
+    document.removeEventListener('keydown', onDown, true); document.removeEventListener('keyup', onUp, true);
+    mic.removeEventListener('pointerdown', onMicDown); mic.removeEventListener('pointerup', end); mic.removeEventListener('pointerleave', end);
+  };
 }
 let detachVoice = null;
 
-// ---------- 设备对话：统一输入框 ----------
+// ---------- 设备对话：气泡在设备头顶（你 / 设备 上下两条），底部常驻输入栏，镜头拉近 ----------
 function ctxSummary() {
   return `第${S.day}天，${clockText()}。已发现：${S.clues.slice(-6).join('；') || '无'}。独立记录 ${evidenceCount()} 份。`;
 }
+let chat = null;   // { id, hist, busy, typer }
+function typeText(el, text, cb) {
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || !text) { el.textContent = text; cb && cb(); return () => {}; }
+  let k = 0; el.textContent = ''; el.classList.add('typing');
+  const t = setInterval(() => {
+    k = Math.min(text.length, k + 2); el.textContent = text.slice(0, k);
+    if (k >= text.length) { clearInterval(t); el.classList.remove('typing'); cb && cb(); }
+  }, 33);
+  return () => { clearInterval(t); el.textContent = text; el.classList.remove('typing'); };
+}
+function renderChat(animate) {
+  if (!chat) return;
+  const a = AGENTS[chat.id], h = chat.hist;
+  if (chat.typer) { chat.typer(); chat.typer = null; }
+  // 只显示最近一轮：你说的话在上，设备的回答在下（同参考图）
+  let npc = null, me = null;
+  for (let i = h.length - 1; i >= 0; i--) {
+    if (!npc && h[i].who !== 'me') { npc = h[i]; if (i > 0 && h[i - 1].who === 'me') me = h[i - 1]; break; }
+    if (h[i].who === 'me') { me = h[i]; break; }
+  }
+  if (!npc && !me) { Bubbles.clear(); return; }
+  const anchor = World.interact[chat.id] ? chat.id : 'player';
+  const st = Bubbles.show(anchor,
+    (me ? `<div class="bub me"><div class="tag">你</div><div class="box"><p>${esc(me.text)}</p></div></div>` : '') +
+    (npc ? `<div class="bub npc"><div class="tag" title="${esc(a.duty)} · ${esc(a.sense)}">${esc(a.name)}</div><div class="box"><p class="npcline"></p></div></div>` : ''));
+  const line = st.querySelector('.npcline');
+  if (line) {
+    if (animate && npc.text !== '……') chat.typer = typeText(line, npc.text);
+    else { line.textContent = npc.text; if (npc.text === '……') line.classList.add('typing'); }
+  }
+}
 async function openChat(id) {
+  if (chat) closeChat(true);
   const a = AGENTS[id];
   S.chat[id] = S.chat[id] || [];
   const hist = S.chat[id];
-  const html = `<h2>${esc(a.name)}<span class="hint" style="margin-left:10px">${esc(a.duty)} · ${esc(NPC.aiLabel())}</span></h2>
-    <p class="hint">感知：${esc(a.sense)}</p>
-    <div class="chatlog" id="log" aria-live="polite"></div>
-    <div class="row"><input id="msg" placeholder="按住空格说话，或打字后回车" aria-label="对设备说话" autocomplete="off"/><button class="mic" id="mic" type="button" aria-label="按住说话" title="按住说话"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="primary" id="send" style="margin-top:0">发送</button></div>
-    <p class="hint" id="vstatus" aria-live="polite"></p>
-    <button class="primary" id="bye">结束对话</button>`;
-  openModal(html, async sh => {
-    const log = sh.querySelector('#log');
-    const render = () => { log.innerHTML = hist.map(h => `<p><span class="${h.who === 'me' ? 'me' : 'who'}">${h.who === 'me' ? '你' : esc(a.name)}：</span>${esc(h.text)}</p>`).join(''); log.scrollTop = 1e6; };
-    let busy = false;
-    const speak = async msg => {
-      if (busy) return; busy = true;
-      if (msg) hist.push({ who: 'me', text: msg });
-      hist.push({ who: id, text: '……' }); render();
-      const ctx = { day: S.day, flags: S.flags, power: S.power, holding: S.holding, evidence: evidenceCount(), summary: ctxSummary() };
-      const res = await NPC.reply(id, ctx, hist.slice(0, -1), msg);
-      hist[hist.length - 1].text = res.reply; render(); busy = false;
-      const st = sh.querySelector('#vstatus');
-      if (res.aiError && st) st.textContent = `AI 暂时不可用（${res.aiError}），这句用的是规则对白。`;
-      else if (st && st.textContent.startsWith('AI 暂时')) st.textContent = '';
-      if (msg) window.applyAction(id, res);
-      save();
-    };
-    sh.querySelector('#bye').onclick = closeModal;
-    const send = () => { const i = sh.querySelector('#msg'); const v = i.value.trim(); if (!v) return; i.value = ''; speak(v); };
-    sh.querySelector('#send').onclick = send;
-    sh.querySelector('#msg').onkeydown = e => { if (e.key === 'Enter') send(); };
-    detachVoice = attachVoice(sh, send);
-    render();
-    if (S.greeted[id] !== S.day) { S.greeted[id] = S.day; await speak(null); }
-  });
+  const me = chat = { id, hist, busy: false, typer: null };
+  setOverlay('chat');
+  World.setTalk(World.interact[id] ? id : null, World.interact[id] ? 1 / 1.28 : 0.85);
+  const bar = $('chatbar');
+  $('chatwho').textContent = a.name;
+  $('chatwho').title = `${a.duty} · ${NPC.aiLabel()}`;
+  $('vstatus').textContent = '';
+  $('msg').value = '';
+  $('send').disabled = false;
+  bar.hidden = false;
+  setTimeout(() => { if (chat === me) $('msg').focus(); }, 30);
+  const speak = async msg => {
+    if (me.busy) return; me.busy = true; $('send').disabled = true;
+    if (msg) hist.push({ who: 'me', text: msg });
+    hist.push({ who: id, text: '……' }); renderChat(false);
+    const ctx = { day: S.day, flags: S.flags, power: S.power, holding: S.holding, evidence: evidenceCount(), summary: ctxSummary() };
+    const res = await NPC.reply(id, ctx, hist.slice(0, -1), msg);
+    hist[hist.length - 1].text = res.reply; me.busy = false;
+    if (chat === me) {
+      $('send').disabled = false;
+      renderChat(true);
+      const st = $('vstatus');
+      if (res.aiError) st.textContent = `AI 暂时不可用（${res.aiError}），这句用的是规则对白。`;
+      else if (st.textContent.startsWith('AI 暂时')) st.textContent = '';
+    }
+    if (msg) window.applyAction(id, res);
+    save();
+  };
+  me.send = () => { const i = $('msg'); const v = i.value.trim(); if (!v) return; i.value = ''; speak(v); };
+  detachVoice = attachVoice(bar, me.send);
+  renderChat(false);
+  // 路过时它刚主动说了一句：接着那句话开始对话，不再重复打招呼
+  const recent = Ambient.recent(id);
+  if (recent) {
+    const lastNpc = hist.length && hist[hist.length - 1];
+    if (!lastNpc || lastNpc.text !== recent) hist.push({ who: id, text: recent });
+    S.greeted[id] = S.day; renderChat(false);
+  }
+  if (S.greeted[id] !== S.day) { S.greeted[id] = S.day; await speak(null); }
 }
+function closeChat(silent) {
+  if (!chat) return;
+  if (chat.typer) chat.typer();
+  chat = null;
+  if (detachVoice) { detachVoice(); detachVoice = null; }
+  $('chatbar').hidden = true; $('msg').blur();
+  Bubbles.clear();
+  World.setTalk(false);
+  if (!silent) { setOverlay(null); setTimeout(flushSay, 120); }
+}
+$('send').onclick = () => chat && chat.send();
+$('bye').onclick = () => closeChat();
+$('msg').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229 && chat) { e.preventDefault(); chat.send(); } });
+$('btnPhone').onclick = () => { if (phoneOpen) closeModal(); else if (!modalOpen) openPhone(); };
 
 // ---------- AI 设置：内置线路（中转）+ 可选的个人 Groq Key ----------
 function openAISettings(after) {
@@ -6597,7 +7080,9 @@ const Boot = (() => {
 function intro() { Boot.show(); }
 
 // ---------- 启动 ----------
-World.onHover(label => { const p = $('prompt'); if (label) { p.textContent = label; p.classList.add('show'); } else p.classList.remove('show'); });
+World.onHover(info => { hoverInfo = info; updatePrompt(); });
+World.onNear(info => { nearInfo = info; updatePrompt(); });
+World.onRoomChange(k => { $('roomname').textContent = World.ROOMS[k] ? World.ROOMS[k].name : ''; AmbientBubble.clear(true); });
 World.onBlocked(room => toast(`${World.ROOMS[room].name}现在进不去`));
 World.onInteract(id => { if (modalOpen) return; const h = H[id]; if (h) h(); });
 World.start();
@@ -6607,7 +7092,7 @@ paintBadge();
 if (loadSave.found) applyDay(); else { S.day = 1; applyDay(); S.day = 0; refreshHUD(); }
 intro();
 
-window.__ruzhu = { S, H, set, nextDay, NPC, applyAction: (...a) => window.applyAction(...a), resolveEnding };
+window.__ruzhu = { S, H, set, nextDay, NPC, Ambient, applyAction: (...a) => window.applyAction(...a), resolveEnding };
 
 </script>
 </body>
